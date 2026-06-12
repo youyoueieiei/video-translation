@@ -1,0 +1,8 @@
+source,target,mode,notes
+Kis-My-Ft2,Kis-My-Ft2,protect,Keep group name unchanged
+YouTube,YouTube,protect,Keep English brand unchanged
+TV,TV,protect,Keep English abbreviation unchanged
+キスマイ,Kis-My-Ft2,replace,Force Japanese nickname to preferred group name
+藤ヶ谷,Fujigaya,replace,Person name example
+玉森,Tamamori,replace,Person name example
+宮田,Miyata,replace,Person name example

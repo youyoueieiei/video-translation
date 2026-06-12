@@ -1,0 +1,4 @@
+faster-whisper
+srt
+requests
+beautifulsoup4
