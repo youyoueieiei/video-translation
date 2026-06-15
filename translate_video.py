@@ -442,6 +442,26 @@ def build_output_paths(
     return audio_path, source_srt_path, translated_srt_path, subtitled_video_path
 
 
+def parse_time_to_seconds(s: str | None) -> float:
+    if not s:
+        return 0.0
+    s = str(s).strip()
+    if s.isdigit():
+        return float(s)
+    parts = s.split(":")
+    try:
+        parts = [float(p) for p in parts]
+    except Exception:
+        raise RuntimeError(f"Invalid --translate-start time format: {s}")
+    if len(parts) == 1:
+        return parts[0]
+    if len(parts) == 2:
+        return parts[0] * 60 + parts[1]
+    if len(parts) == 3:
+        return parts[0] * 3600 + parts[1] * 60 + parts[2]
+    raise RuntimeError(f"Invalid --translate-start time format: {s}")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Transcribe MP4 audio and export translated subtitles as an SRT file."
@@ -536,6 +556,12 @@ def parse_args() -> argparse.Namespace:
         default=2,
         help="Retries per subtitle line after a translation failure. Default: 2.",
     )
+    parser.add_argument(
+        "--translate-start",
+        default=None,
+        help="Optional start time to begin translating (format: HH:MM:SS, MM:SS, or seconds). "
+        "Lines that end before this time will be copied unchanged into the translated SRT.",
+    )
     return parser.parse_args()
 
 
@@ -596,17 +622,34 @@ def main() -> int:
         if translated_srt_path.exists() and not args.force_translate:
             print(f"3/4 Reusing translated subtitles: {translated_srt_path}")
         else:
-            print(f"3/4 Translating {source_language} to {target_language}...")
-            translated_lines = translate_subtitles(
-                source_lines,
-                source_language=source_language,
-                target_language=target_language,
-                timeout=args.translation_timeout,
-                retries=args.translation_retries,
-                glossary_entries=glossary_entries,
-                translation_mode=args.translation_mode,
-                context_size=args.context_size,
-            )
+            translate_start_seconds = parse_time_to_seconds(args.translate_start)
+            print(f"3/4 Translating {source_language} to {target_language} (start at {translate_start_seconds}s)...")
+
+            # Decide which lines to translate (those that end after translate_start_seconds)
+            lines_to_translate = [l for l in source_lines if l.end > translate_start_seconds]
+
+            if lines_to_translate:
+                translated_subset = translate_subtitles(
+                    lines_to_translate,
+                    source_language=source_language,
+                    target_language=target_language,
+                    timeout=args.translation_timeout,
+                    retries=args.translation_retries,
+                    glossary_entries=glossary_entries,
+                    translation_mode=args.translation_mode,
+                    context_size=args.context_size,
+                )
+                # Map index -> translated text for replaced lines
+                translated_map = {l.index: l.text for l in translated_subset}
+            else:
+                translated_map = {}
+
+            # Build final translated list: if line ends <= start, keep source text unchanged
+            translated_lines: list[SubtitleLine] = []
+            for l in source_lines:
+                text = translated_map.get(l.index, l.text)
+                translated_lines.append(SubtitleLine(index=l.index, start=l.start, end=l.end, text=text))
+
             translated_srt_path.write_text(to_srt(translated_lines), encoding="utf-8")
             print(f"Wrote translated subtitles: {translated_srt_path}")
 

@@ -156,6 +156,7 @@ class SubtitleTranslatorApp(tk.Tk):
         self.output_dir = tk.StringVar()
         self.glossary_path = tk.StringVar()
         self.ui_language = tk.StringVar(value="English")
+        self.translate_start = tk.StringVar(value="")
         self.source_language = tk.StringVar(value="Japanese (ja)")
         self.target_language = tk.StringVar(value="Chinese Simplified (zh-CN)")
         self.model_size = tk.StringVar(value="small")
@@ -230,6 +231,12 @@ class SubtitleTranslatorApp(tk.Tk):
         ttk.Entry(files_frame, textvariable=self.glossary_path).grid(row=2, column=1, sticky=tk.EW, padx=(0, 8), pady=6)
         self.widgets["browse_glossary_button"] = ttk.Button(files_frame, text="Browse...", command=self._select_glossary)
         self.widgets["browse_glossary_button"].grid(row=2, column=2, sticky=tk.E, pady=6)
+
+        # Translate start time (optional)
+        self.widgets["translate_start_label"] = ttk.Label(files_frame, text="Translate start (HH:MM:SS, optional)")
+        self.widgets["translate_start_label"].grid(row=3, column=0, sticky=tk.W, padx=(0, 12), pady=6)
+        ttk.Entry(files_frame, textvariable=self.translate_start, width=18).grid(row=3, column=1, sticky=tk.W, padx=(0, 8), pady=6)
+        ttk.Label(files_frame, text="(leave blank = 0s)").grid(row=3, column=2, sticky=tk.W, pady=6)
 
         translation_frame = ttk.LabelFrame(root, text="Languages and Quality", padding=14)
         translation_frame.grid(row=3, column=0, sticky=tk.EW, pady=(0, 12))
@@ -409,6 +416,8 @@ class SubtitleTranslatorApp(tk.Tk):
             command.extend(["--output-dir", self.output_dir.get().strip()])
         if self.glossary_path.get().strip():
             command.extend(["--glossary", self.glossary_path.get().strip()])
+        if self.translate_start.get().strip():
+            command.extend(["--translate-start", self.translate_start.get().strip()])
         if self.burn_video.get():
             command.append("--burn")
         if self.song_mode.get():

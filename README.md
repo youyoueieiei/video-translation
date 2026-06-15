@@ -79,6 +79,7 @@ In the app:
 2. Select an input `.mp4` video.
 3. Choose an output folder.
 4. Optionally select a glossary CSV.
+5. (Optional) Set `Translate start` time to skip initial audio (format HH:MM:SS). Lines that end before this time will be copied unchanged into the translated SRT.
 5. Select the source language and output language.
 6. Select translation quality.
 7. Choose whether to export only `.srt` or also create a subtitled `.mp4`.
