@@ -54,14 +54,16 @@ run_subtitle_translator.bat
 
 In the app:
 
-1. Select an input `.mp4` video.
-2. Optionally select a glossary CSV for names, brands, and protected words. Leave it blank if you do not need custom corrections.
-3. Select the source language.
-4. Select the output translation language.
-5. Leave the checkbox off to export translated `.srt` only.
-6. Check `Also add translated subtitles to a new MP4 video` to export `.srt` and a new subtitled `.mp4`.
-7. For music videos or lyrics, check `Song/music mode for lyrics`.
-8. Click `Start`.
+1. Use the top `UI Language` dropdown to switch the app between English and Chinese.
+2. Select an input `.mp4` video.
+3. Optionally select a glossary CSV for names, brands, and protected words. Leave it blank if you do not need custom corrections.
+4. Select the source language.
+5. Select the output translation language.
+6. Select translation quality.
+7. Leave the checkbox off to export translated `.srt` only.
+8. Check `Also add translated subtitles to a new MP4 video` to export `.srt` and a new subtitled `.mp4`.
+9. For music videos or lyrics, check `Song/music mode for lyrics`.
+10. Click `Start`.
 
 You can also start the GUI from PowerShell:
 
@@ -87,6 +89,12 @@ Use a glossary for names, brands, and protected English words:
 
 ```powershell
 python translate_video.py "video.mp4" --source-language ja --target-language zh-CN --glossary glossary_template.csv
+```
+
+Use better context-aware translation:
+
+```powershell
+python translate_video.py "video.mp4" --source-language ja --target-language zh-CN --translation-mode context
 ```
 
 English to Chinese:
@@ -156,6 +164,21 @@ Tips:
 - Keep the header row exactly as `source,target,mode,notes`.
 - Save as UTF-8 CSV if your glossary contains Japanese or Chinese.
 - If you already generated the translated SRT and then changed the glossary, run again with `--force-translate`.
+
+## Translation Quality
+
+The app has two translation quality modes:
+
+- `Fast Google (line by line)`: translates each subtitle cue separately. This is faster and simpler, but short cues may sound unnatural.
+- `Better Context Google (grouped subtitles)`: translates small groups of nearby subtitle cues together, then splits them back into SRT cues. This usually improves sentence flow, pronouns, jokes, names, and lyrics.
+
+Command-line options:
+
+```powershell
+python translate_video.py "video.mp4" --source-language ja --target-language zh-CN --translation-mode context --context-size 6
+```
+
+Use `--force-translate` if you already generated subtitles and want to regenerate them with a different quality mode.
 
 ## Output
 

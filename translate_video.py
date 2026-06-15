@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import csv
 import os
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -205,6 +206,53 @@ def translate_text(text: str, source_language: str, target_language: str, timeou
     raise RuntimeError(str(last_error) if last_error else "translation failed")
 
 
+def parse_numbered_translation_block(translated_block: str, expected_count: int) -> list[str] | None:
+    parsed: list[str] = []
+
+    for raw_line in translated_block.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        match = re.match(r"^\s*(\d+)\s*[\.\):：、-]?\s*(.*)$", line)
+        if not match:
+            continue
+
+        index = int(match.group(1))
+        if index != len(parsed) + 1:
+            return None
+
+        parsed.append(match.group(2).strip())
+
+    if len(parsed) != expected_count:
+        return None
+    if any(not item for item in parsed):
+        return None
+
+    return parsed
+
+
+def build_context_block(lines: list[str]) -> str:
+    return "\n".join(f"{index}. {text}" for index, text in enumerate(lines, start=1))
+
+
+def translate_context_batch(
+    lines: list[str],
+    source_language: str,
+    target_language: str,
+    timeout: int,
+    retries: int,
+) -> list[str] | None:
+    translated_block = translate_text(
+        build_context_block(lines),
+        source_language=source_language,
+        target_language=target_language,
+        timeout=timeout,
+        retries=retries,
+    )
+    return parse_numbered_translation_block(translated_block, expected_count=len(lines))
+
+
 def translate_subtitles(
     lines: list[SubtitleLine],
     source_language: str,
@@ -212,7 +260,20 @@ def translate_subtitles(
     timeout: int,
     retries: int,
     glossary_entries: list[GlossaryEntry],
+    translation_mode: str,
+    context_size: int,
 ) -> list[SubtitleLine]:
+    if translation_mode == "context":
+        return translate_subtitles_with_context(
+            lines=lines,
+            source_language=source_language,
+            target_language=target_language,
+            timeout=timeout,
+            retries=retries,
+            glossary_entries=glossary_entries,
+            context_size=context_size,
+        )
+
     translated: list[SubtitleLine] = []
 
     for position, line in enumerate(lines, start=1):
@@ -249,6 +310,86 @@ def translate_subtitles(
                 text=translated_text.strip() if translated_text else line.text,
             )
         )
+
+    return translated
+
+
+def translate_subtitles_with_context(
+    lines: list[SubtitleLine],
+    source_language: str,
+    target_language: str,
+    timeout: int,
+    retries: int,
+    glossary_entries: list[GlossaryEntry],
+    context_size: int,
+) -> list[SubtitleLine]:
+    translated: list[SubtitleLine] = []
+    safe_context_size = max(2, context_size)
+
+    for batch_start in range(0, len(lines), safe_context_size):
+        batch = lines[batch_start : batch_start + safe_context_size]
+        protected_lines: list[str] = []
+        batch_replacements: list[dict[str, str]] = []
+
+        for line in batch:
+            protected_text, glossary_replacements = apply_glossary_placeholders(
+                line.text,
+                glossary_entries,
+            )
+            protected_lines.append(protected_text)
+            batch_replacements.append(glossary_replacements)
+
+        translated_texts: list[str] | None = None
+        try:
+            translated_texts = translate_context_batch(
+                protected_lines,
+                source_language=source_language,
+                target_language=target_language,
+                timeout=timeout,
+                retries=retries,
+            )
+        except Exception as exc:
+            print(
+                f"Warning: context translation failed for lines {batch[0].index}-{batch[-1].index}; "
+                f"falling back to line-by-line. ({exc})",
+                file=sys.stderr,
+                flush=True,
+            )
+
+        if translated_texts is None:
+            translated_texts = []
+            for protected_text, source_line in zip(protected_lines, batch):
+                try:
+                    translated_texts.append(
+                        translate_text(
+                            protected_text,
+                            source_language=source_language,
+                            target_language=target_language,
+                            timeout=timeout,
+                            retries=retries,
+                        )
+                    )
+                except Exception as exc:
+                    print(
+                        f"Warning: translation failed for subtitle {source_line.index}; "
+                        f"keeping original text. ({exc})",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                    translated_texts.append(source_line.text)
+
+        for source_line, translated_text, replacements in zip(batch, translated_texts, batch_replacements):
+            translated_text = restore_glossary_placeholders(translated_text, replacements)
+            translated.append(
+                SubtitleLine(
+                    index=source_line.index,
+                    start=source_line.start,
+                    end=source_line.end,
+                    text=translated_text.strip() if translated_text else source_line.text,
+                )
+            )
+
+        print(f"Translated {len(translated)}/{len(lines)} subtitle lines...", flush=True)
 
     return translated
 
@@ -372,6 +513,18 @@ def parse_args() -> argparse.Namespace:
         help="Optional CSV glossary with source,target,mode columns for protected names and terms.",
     )
     parser.add_argument(
+        "--translation-mode",
+        choices=["fast", "context"],
+        default="fast",
+        help="Translation mode. `fast` translates cue by cue; `context` translates small groups for better flow.",
+    )
+    parser.add_argument(
+        "--context-size",
+        type=int,
+        default=6,
+        help="Number of subtitle cues per context translation batch. Default: 6.",
+    )
+    parser.add_argument(
         "--translation-timeout",
         type=int,
         default=15,
@@ -451,6 +604,8 @@ def main() -> int:
                 timeout=args.translation_timeout,
                 retries=args.translation_retries,
                 glossary_entries=glossary_entries,
+                translation_mode=args.translation_mode,
+                context_size=args.context_size,
             )
             translated_srt_path.write_text(to_srt(translated_lines), encoding="utf-8")
             print(f"Wrote translated subtitles: {translated_srt_path}")
