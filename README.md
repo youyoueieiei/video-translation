@@ -1,24 +1,39 @@
 # MP4 Subtitle Translator
 
-This tool takes an MP4 video, transcribes the spoken language, translates the subtitle text, and exports a translated `.srt` file.
+MP4 Subtitle Translator is a local desktop and command-line tool for creating translated subtitles from MP4 videos.
 
-## Process Summary
+It can transcribe speech, translate subtitles, preserve timestamps, apply custom glossary corrections, and optionally burn translated subtitles into a new MP4 video.
 
-1. Input an `.mp4` video.
-2. Extract audio from the MP4 with `ffmpeg`.
-3. Transcribe the audio with `faster-whisper`.
-4. Save the source-language subtitles as `.srt`.
-5. Translate each subtitle cue with timestamps preserved.
-6. Export the translated `.srt` file.
-7. Optionally merge very short subtitle cues.
-8. Optionally burn translated subtitles into a new MP4.
+## Features
 
-## What It Does
+- Transcribe MP4 audio with `faster-whisper`.
+- Translate subtitles between languages such as Japanese, Chinese, English, and Korean.
+- Export translated `.srt` subtitle files.
+- Optional GUI with English and Chinese interface support.
+- Optional glossary CSV for names, brands, group names, and protected English words.
+- Optional context-aware translation mode for better sentence flow.
+- Optional song/music mode for lyrics and music videos.
+- Optional MP4 output with translated subtitles burned into the video.
+- Optional short-subtitle merge helper for subtitle cleanup.
 
-- Input: MP4 video
-- Select source language: `--source-language`
-- Select output translation language: `--target-language`
-- Export: translated `.srt` file
+## How It Works
+
+```text
+input.mp4
+  -> extract audio with ffmpeg
+  -> transcribe source language with faster-whisper
+  -> save source .srt
+  -> translate subtitle text
+  -> save translated .srt
+  -> optionally burn subtitles into a new MP4
+```
+
+## Requirements
+
+- Windows, macOS, or Linux
+- Python 3.10 or newer
+- `ffmpeg`
+- Internet access for Google Translate mobile web requests
 
 ## Setup
 
@@ -34,85 +49,60 @@ Install `ffmpeg` and make sure it is available on PATH:
 ffmpeg -version
 ```
 
-If `ffmpeg` is missing, install it with Winget:
+On Windows, you can install `ffmpeg` with Winget:
 
 ```powershell
 winget install Gyan.FFmpeg
 ```
 
-Then restart the terminal.
+Restart your terminal after installing `ffmpeg`.
 
-## Run
+## Quick Start
 
-### GUI Program
+### GUI
 
-Double-click this file:
+Double-click:
 
 ```text
 run_subtitle_translator.bat
 ```
 
-In the app:
-
-1. Use the top `UI Language` dropdown to switch the app between English and Chinese.
-2. Select an input `.mp4` video.
-3. Optionally select a glossary CSV for names, brands, and protected words. Leave it blank if you do not need custom corrections.
-4. Select the source language.
-5. Select the output translation language.
-6. Select translation quality.
-7. Leave the checkbox off to export translated `.srt` only.
-8. Check `Also add translated subtitles to a new MP4 video` to export `.srt` and a new subtitled `.mp4`.
-9. For music videos or lyrics, check `Song/music mode for lyrics`.
-10. Click `Start`.
-
-You can also start the GUI from PowerShell:
+Or start the GUI from PowerShell:
 
 ```powershell
 python subtitle_translator_app.py
 ```
 
+In the app:
+
+1. Use `UI Language` to switch between English and Chinese.
+2. Select an input `.mp4` video.
+3. Choose an output folder.
+4. Optionally select a glossary CSV.
+5. Select the source language and output language.
+6. Select translation quality.
+7. Choose whether to export only `.srt` or also create a subtitled `.mp4`.
+8. For music videos or lyrics, enable song/music mode.
+9. Click `Start`.
+
 ### Command Line
 
-Basic format:
+Basic usage:
 
 ```powershell
-python translate_video.py "path\to\video.mp4" --source-language ja --target-language zh-CN
+python translate_video.py "path/to/video.mp4" --source-language ja --target-language zh-CN
 ```
 
-Japanese to Simplified Chinese:
-
-```powershell
-python translate_video.py "Process video\Kis-My-Ft2【ピンスポクエスト】キスマイYouTubeが地上波に初進出という事態が起こりました！.mp4" --source-language ja --target-language zh-CN --model-size small
-```
-
-Use a glossary for names, brands, and protected English words:
-
-```powershell
-python translate_video.py "video.mp4" --source-language ja --target-language zh-CN --glossary glossary_template.csv
-```
-
-Use better context-aware translation:
+Japanese to Simplified Chinese with better context-aware translation:
 
 ```powershell
 python translate_video.py "video.mp4" --source-language ja --target-language zh-CN --translation-mode context
 ```
 
-English to Chinese:
+Export translated SRT and a subtitled MP4:
 
 ```powershell
-python translate_video.py "video.mp4" --source-language en --target-language zh-CN
-```
-
-Japanese to English:
-
-```powershell
-python translate_video.py "video.mp4" --source-language ja --target-language en
-```
-
-Use a faster, lower-quality transcription model:
-
-```powershell
-python translate_video.py "video.mp4" --source-language ja --target-language zh-CN --model-size small
+python translate_video.py "video.mp4" --source-language ja --target-language zh-CN --burn
 ```
 
 For music videos, songs, or lyrics:
@@ -127,23 +117,52 @@ Use a GPU if CUDA is available:
 python translate_video.py "video.mp4" --source-language ja --target-language zh-CN --device cuda --compute-type float16
 ```
 
-Regenerate subtitles even if output files already exist:
+## GUI Options
+
+### UI Language
+
+Switches the app interface between English and Chinese. This does not change the subtitle translation language.
+
+### Files
+
+- `Input MP4`: source video file.
+- `Output Folder`: where generated subtitle/video files are saved.
+- `Glossary CSV`: optional custom dictionary for names and protected words.
+
+### Languages And Quality
+
+- `Source Language`: spoken language in the video.
+- `Output Language`: subtitle translation language.
+- `Whisper Model`: transcription model size. Larger models are usually more accurate but slower.
+- `Translation Quality`: choose fast line-by-line translation or better context-aware grouped translation.
+
+### Export Options
+
+- `Also add translated subtitles to a new MP4 video`: creates a subtitled MP4 in addition to SRT files.
+- `Song/music mode for lyrics`: disables voice activity filtering, useful for music videos.
+- `Force transcribe again`: regenerates the source SRT even if it already exists.
+- `Force translate again`: regenerates the translated SRT even if it already exists.
+
+## Translation Quality
+
+The app has two translation modes:
+
+- `Fast Google (line by line)`: translates each subtitle cue separately. Faster, but short cues can sound unnatural.
+- `Better Context Google (grouped subtitles)`: translates nearby subtitle cues together, then splits them back into SRT cues. This usually improves sentence flow, pronouns, jokes, names, and lyrics.
+
+Command-line example:
 
 ```powershell
-python translate_video.py "video.mp4" --source-language ja --target-language zh-CN --force-transcribe --force-translate
+python translate_video.py "video.mp4" --source-language ja --target-language zh-CN --translation-mode context --context-size 6
 ```
 
-Merge very short translated subtitle lines into nearby timestamps:
-
-```powershell
-python merge_short_subtitles.py "Process video\output\video.ja.zh-CN.srt" --min-chars 3 --max-gap-ms 1200 --max-duration-ms 7000
-```
+Use `--force-translate` if you already generated subtitles and want to regenerate them with another translation mode.
 
 ## Glossary
 
-Use `glossary_template.csv` as the starting template.
+Use `glossary_template.csv` as a starting template.
 
-The CSV columns are:
+CSV format:
 
 ```csv
 source,target,mode,notes
@@ -155,45 +174,30 @@ YouTube,YouTube,protect,Keep English brand unchanged
 
 Glossary modes:
 
-- `protect`: keep the source word unchanged. Good for English words, brands, product names, and names that should not be translated.
-- `replace`: force the source word to become your preferred target word. Good for Japanese names, nicknames, show names, and idol group names.
+- `protect`: keep the source word unchanged. Use this for English words, brands, product names, and names that should not be translated.
+- `replace`: force the source word to become your preferred target word. Use this for names, nicknames, show names, group names, and recurring phrases.
 
 Tips:
 
 - Edit the CSV in Excel or a text editor.
 - Keep the header row exactly as `source,target,mode,notes`.
 - Save as UTF-8 CSV if your glossary contains Japanese or Chinese.
-- If you already generated the translated SRT and then changed the glossary, run again with `--force-translate`.
+- If you change the glossary after generating subtitles, run again with `--force-translate`.
 
-## Translation Quality
+## Output Files
 
-The app has two translation quality modes:
-
-- `Fast Google (line by line)`: translates each subtitle cue separately. This is faster and simpler, but short cues may sound unnatural.
-- `Better Context Google (grouped subtitles)`: translates small groups of nearby subtitle cues together, then splits them back into SRT cues. This usually improves sentence flow, pronouns, jokes, names, and lyrics.
-
-Command-line options:
-
-```powershell
-python translate_video.py "video.mp4" --source-language ja --target-language zh-CN --translation-mode context --context-size 6
-```
-
-Use `--force-translate` if you already generated subtitles and want to regenerate them with a different quality mode.
-
-## Output
-
-Files are written to an `output` folder next to the video by default:
+By default, files are written to an `output` folder next to the video:
 
 ```text
-<video folder>\output\
+<video folder>/output/
 ```
 
-Example output names:
+Example outputs:
 
 ```text
 video.ja.srt
 video.ja.zh-CN.srt
-video.ja.zh-CN.merged.srt
+video.zh-CN_subtitled.mp4
 ```
 
 The translated subtitle file is the main output:
@@ -202,11 +206,61 @@ The translated subtitle file is the main output:
 video.<source-language>.<target-language>.srt
 ```
 
-The `.mp4` output is only created when using `--burn`.
+The MP4 output is only created when `--burn` is enabled.
+
+## Merge Short Subtitle Lines
+
+Use this helper if your translated SRT has many very short subtitle cues:
+
+```powershell
+python merge_short_subtitles.py "output/video.ja.zh-CN.srt" --min-chars 3 --max-gap-ms 1200 --max-duration-ms 7000
+```
+
+This creates a separate merged SRT and keeps the original file unchanged.
+
+## Common Language Codes
+
+- `ja`: Japanese
+- `zh-CN`: Simplified Chinese
+- `zh-TW`: Traditional Chinese
+- `en`: English
+- `ko`: Korean
+- `fr`: French
+- `de`: German
+- `es`: Spanish
+
+## Troubleshooting
+
+### `ffmpeg` Not Found
+
+Install `ffmpeg`, restart the terminal, and confirm:
+
+```powershell
+ffmpeg -version
+```
+
+### Empty SRT For Music Videos
+
+Enable song/music mode and regenerate:
+
+```powershell
+python translate_video.py "video.mp4" --source-language ja --target-language zh-CN --song-mode --force-transcribe --force-translate
+```
+
+### Glossary Changes Do Not Appear
+
+Regenerate translation:
+
+```powershell
+python translate_video.py "video.mp4" --source-language ja --target-language zh-CN --glossary glossary_template.csv --force-translate
+```
+
+### First Run Is Slow
+
+The first run downloads the Whisper model. Larger models like `medium` and `large-v3` are slower, especially on CPU.
 
 ## Notes
 
-- The first run can take a long time because the Whisper model must download.
-- `medium` gives better transcription quality but is slower on CPU.
 - Translation uses Google Translate mobile web requests, so it needs internet access.
-- Common language codes: `ja`, `zh-CN`, `zh-TW`, `en`, `ko`, `fr`, `de`, `es`.
+- For best transcription quality, use a larger Whisper model if your computer can handle it.
+- For best translation quality, use context-aware translation plus a glossary.
