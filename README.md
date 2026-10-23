@@ -1,295 +1,252 @@
 # MP4 Subtitle Translator
 
-MP4 Subtitle Translator is a local desktop and command-line tool for creating translated subtitles from MP4 videos.
+Local tool to **transcribe**, **translate**, and **burn** subtitles for videos.
 
-It can transcribe speech, translate subtitles, preserve timestamps, apply custom glossary corrections, and optionally burn translated subtitles into a new MP4 video.
+- **GUI** (Chinese / English): translate tab + burn/compress tab  
+- **CLI**: `translate_video.py`, `burn_video.py`, `merge_short_subtitles.py`  
+- Works offline for JA→ZH when online translators rate-limit (MarianMT fallback)
+
+---
 
 ## Features
 
-- Transcribe MP4 audio with `faster-whisper`.
-- Translate subtitles between languages such as Japanese, Chinese, English, and Korean.
-- Export translated `.srt` subtitle files.
-- Optional GUI with English and Chinese interface support.
-- Optional glossary CSV for names, brands, group names, and protected English words.
-- Optional context-aware translation mode for better sentence flow.
-- Optional song/music mode for lyrics and music videos.
-- Optional MP4 output with translated subtitles burned into the video.
-- Optional short-subtitle merge helper for subtitle cleanup.
+| Area | What it does |
+|------|----------------|
+| Transcribe | `faster-whisper` speech-to-text → source `.srt` |
+| Translate | Google / MyMemory online, or local MarianMT (JA→ZH) |
+| Glossary | CSV protect/replace for names, titles, brands |
+| Context mode | Group nearby cues for better sentence flow |
+| Song mode | Better for music / lyrics (weaker VAD filtering) |
+| Burn / compress | Video + SRT/ASS → subtitled MP4/MKV, same resolution, CRF compression |
+| GUI | Double-click launcher, no console window |
 
-## How It Works
-
-```text
-input.mp4
-  -> extract audio with ffmpeg
-  -> transcribe source language with faster-whisper
-  -> save source .srt
-  -> translate subtitle text
-  -> save translated .srt
-  -> optionally burn subtitles into a new MP4
-```
+---
 
 ## Requirements
 
-- Windows, macOS, or Linux
-- Python 3.10 or newer
-- `ffmpeg`
-- Internet access for Google Translate mobile web requests
+- Windows / macOS / Linux  
+- Python **3.10+**  
+- [`ffmpeg`](https://ffmpeg.org/) on `PATH`  
+- Internet for online translation (optional if you use `--translation-backend local` for JA→ZH)
 
-## Setup
-
-Install Python dependencies:
+### Setup
 
 ```powershell
+cd video-translation
 python -m pip install -r requirements.txt
-```
-
-Install `ffmpeg` and make sure it is available on PATH:
-
-```powershell
 ffmpeg -version
 ```
 
-On Windows, you can install `ffmpeg` with Winget:
+Windows ffmpeg install:
 
 ```powershell
 winget install Gyan.FFmpeg
 ```
 
-Restart your terminal after installing `ffmpeg`.
+Restart the terminal after installing ffmpeg.
 
-## Burn / Compress Only
+`requirements.txt` includes `torch` / `transformers` for the **offline JA→ZH** fallback. First local run may download a model (~hundreds of MB).
 
-Burn an existing SRT/ASS into a video (same resolution, optional CRF compression):
+---
 
-```powershell
-python burn_video.py "video.mp4" "subs.zh-CN.srt" -o "video.burned.mp4" --font-size 46 --crf 24
-```
+## Quick start (GUI)
 
-Also available as the **Burn / Compress** tab in the GUI.
-
-Supported inputs: `.mp4` `.mkv` `.mov` `.avi` `.webm` `.m4v`  
-Supported outputs: `.mp4` `.mkv`
-
-## Quick Start
-
-### GUI
-
-From the parent `translation` folder, double-click:
-
-```text
-启动字幕翻译.bat
-```
-
-Or inside `video-translation`:
+Double-click:
 
 ```text
 run_subtitle_translator.bat
 ```
 
-You can also drag an `.mp4` onto either launcher to pre-fill the video path.
+or the silent launcher:
 
-Optional: create a Desktop shortcut
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\创建桌面快捷方式.ps1
+```text
+run_subtitle_translator.vbs
 ```
 
-Or start the GUI from PowerShell:
+Optional desktop shortcut:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\create_desktop_shortcut.ps1
+```
+
+Or:
 
 ```powershell
 python subtitle_translator_app.py
 python subtitle_translator_app.py "path\to\video.mp4"
 ```
 
-In the app:
+### Translate tab
 
-1. Use `UI Language` to switch between English and Chinese.
-2. Select an input `.mp4` video.
-3. Choose an output folder.
-4. Optionally select a glossary CSV.
-5. (Optional) Set `Translate start` time to skip initial audio (format HH:MM:SS). Lines that end before this time will be copied unchanged into the translated SRT.
-5. Select the source language and output language.
-6. Select translation quality.
-7. Choose whether to export only `.srt` or also create a subtitled `.mp4`.
-8. For music videos or lyrics, enable song/music mode.
-9. Click `Start`.
+1. Choose input video and output folder  
+2. Optional glossary CSV  
+3. Source / target language, Whisper model, translation quality  
+4. Optional: burn into MP4, song mode, force re-transcribe / re-translate  
+5. Click **Start**
 
-### Command Line
+### Burn / Compress tab
 
-Basic usage:
+1. Input video (mp4 / mkv / mov / avi / webm / …)  
+2. Input subtitle (`.srt` or `.ass`)  
+3. Output path + format (`mp4` or `mkv`)  
+4. Font size, bottom margin, one-line toggle, CRF quality  
+5. Click **Start burn** — resolution stays the same; CRF controls file size
+
+---
+
+## Command line
+
+### Translate
 
 ```powershell
-python translate_video.py "path/to/video.mp4" --source-language ja --target-language zh-CN
+python translate_video.py "video.mp4" --source-language ja --target-language zh-CN
 ```
 
-Japanese to Simplified Chinese with better context-aware translation:
+Context-aware + glossary:
 
 ```powershell
-python translate_video.py "video.mp4" --source-language ja --target-language zh-CN --translation-mode context
+python translate_video.py "video.mp4" `
+  --source-language ja --target-language zh-CN `
+  --translation-mode context `
+  --glossary glossary_template.csv
 ```
 
-Export translated SRT and a subtitled MP4:
+Also burn while translating:
 
 ```powershell
 python translate_video.py "video.mp4" --source-language ja --target-language zh-CN --burn
 ```
 
-For music videos, songs, or lyrics:
+Song / lyrics:
 
 ```powershell
-python translate_video.py "video.mp4" --source-language ja --target-language zh-CN --song-mode --force-transcribe --force-translate
+python translate_video.py "video.mp4" --source-language ja --target-language zh-CN `
+  --song-mode --force-transcribe --force-translate
 ```
 
-Use a GPU if CUDA is available:
+Force offline JA→ZH:
 
 ```powershell
-python translate_video.py "video.mp4" --source-language ja --target-language zh-CN --device cuda --compute-type float16
+python translate_video.py "video.mp4" --source-language ja --target-language zh-CN `
+  --translation-backend local
 ```
 
-## GUI Options
-
-### UI Language
-
-Switches the app interface between English and Chinese. This does not change the subtitle translation language.
-
-### Files
-
-- `Input MP4`: source video file.
-- `Output Folder`: where generated subtitle/video files are saved.
-- `Glossary CSV`: optional custom dictionary for names and protected words.
-
-### Languages And Quality
-
-- `Source Language`: spoken language in the video.
-- `Output Language`: subtitle translation language.
-- `Whisper Model`: transcription model size. Larger models are usually more accurate but slower.
-- `Translation Quality`: choose fast line-by-line translation or better context-aware grouped translation.
-
-### Export Options
-
-- `Also add translated subtitles to a new MP4 video`: creates a subtitled MP4 in addition to SRT files.
-- `Song/music mode for lyrics`: disables voice activity filtering, useful for music videos.
-- `Force transcribe again`: regenerates the source SRT even if it already exists.
-- `Force translate again`: regenerates the translated SRT even if it already exists.
-
-## Translation Quality
-
-The app has two translation modes:
-
-- `Fast Google (line by line)`: translates each subtitle cue separately. Faster, but short cues can sound unnatural.
-- `Better Context Google (grouped subtitles)`: translates nearby subtitle cues together, then splits them back into SRT cues. This usually improves sentence flow, pronouns, jokes, names, and lyrics.
-
-Command-line example:
+GPU transcription (if CUDA is available):
 
 ```powershell
-python translate_video.py "video.mp4" --source-language ja --target-language zh-CN --translation-mode context --context-size 6
+python translate_video.py "video.mp4" --source-language ja --target-language zh-CN `
+  --device cuda --compute-type float16
 ```
 
-Use `--force-translate` if you already generated subtitles and want to regenerate them with another translation mode.
+Skip translating cues before a timestamp (copy them as-is):
+
+```powershell
+python translate_video.py "video.mp4" --source-language ja --target-language zh-CN `
+  --translate-start 00:01:30
+```
+
+### Burn / compress only
+
+```powershell
+python burn_video.py "video.mp4" "subs.zh-CN.srt" `
+  -o "video.burned.mp4" --font-size 46 --crf 24 --format mp4
+```
+
+Useful flags:
+
+| Flag | Meaning |
+|------|---------|
+| `--font-size` | ASS font size (default 46) |
+| `--margin-v` | Distance from bottom edge |
+| `--crf` | x264 quality: lower = bigger/better (18–28 typical; 24 recommended) |
+| `--format` | `mp4` or `mkv` |
+| `--keep-line-breaks` | Keep multi-line cues (default flattens to one line) |
+
+### Merge very short cues
+
+```powershell
+python merge_short_subtitles.py "output/video.ja.zh-CN.srt" `
+  --min-chars 3 --max-gap-ms 1200 --max-duration-ms 7000
+```
+
+Creates a new merged SRT; original file is unchanged.
+
+---
 
 ## Glossary
 
-Use `glossary_template.csv` as a starting template.
-
-CSV format:
+Start from `glossary_template.csv`, or use the sample `glossary_deka_hoshi.csv`.
 
 ```csv
 source,target,mode,notes
 Kis-My-Ft2,Kis-My-Ft2,protect,Keep group name unchanged
-YouTube,YouTube,protect,Keep English brand unchanged
-キスマイ,Kis-My-Ft2,replace,Force Japanese nickname to preferred group name
-藤ヶ谷,Fujigaya,replace,Person name example
+キスマイ,Kis-My-Ft2,replace,Nickname → official name
 ```
 
-Glossary modes:
+- **`protect`**: leave the source text unchanged  
+- **`replace`**: force a preferred translation  
 
-- `protect`: keep the source word unchanged. Use this for English words, brands, product names, and names that should not be translated.
-- `replace`: force the source word to become your preferred target word. Use this for names, nicknames, show names, group names, and recurring phrases.
+Save as UTF-8. After editing, re-run with `--force-translate`.
 
-Tips:
+---
 
-- Edit the CSV in Excel or a text editor.
-- Keep the header row exactly as `source,target,mode,notes`.
-- Save as UTF-8 CSV if your glossary contains Japanese or Chinese.
-- If you change the glossary after generating subtitles, run again with `--force-translate`.
+## Output layout
 
-## Output Files
-
-By default, files are written to an `output` folder next to the video:
+Default folder (next to the video unless you pass `--output-dir`):
 
 ```text
 <video folder>/output/
+  video.ja.srt
+  video.ja.zh-CN.srt
+  video.zh-CN_subtitled.mp4   # only with --burn
 ```
 
-Example outputs:
+Burn-only default name:
 
 ```text
-video.ja.srt
-video.ja.zh-CN.srt
-video.zh-CN_subtitled.mp4
+video.burned.mp4
 ```
 
-The translated subtitle file is the main output:
+---
 
-```text
-video.<source-language>.<target-language>.srt
-```
+## Project files
 
-The MP4 output is only created when `--burn` is enabled.
+| File | Role |
+|------|------|
+| `subtitle_translator_app.py` | GUI |
+| `translate_video.py` | Transcribe + translate CLI |
+| `burn_video.py` | Burn/compress CLI |
+| `merge_short_subtitles.py` | Merge short SRT cues |
+| `glossary_template.csv` | Glossary starter |
+| `run_subtitle_translator.bat` / `.vbs` | GUI launchers |
+| `create_desktop_shortcut.ps1` | Desktop shortcut helper |
 
-## Merge Short Subtitle Lines
+Media outputs (`*.mp4`, `*.srt`, `*.mkv`, …) are **gitignored** and should not be committed.
 
-Use this helper if your translated SRT has many very short subtitle cues:
+---
 
-```powershell
-python merge_short_subtitles.py "output/video.ja.zh-CN.srt" --min-chars 3 --max-gap-ms 1200 --max-duration-ms 7000
-```
+## Language codes
 
-This creates a separate merged SRT and keeps the original file unchanged.
+`ja` `zh-CN` `zh-TW` `en` `ko` `fr` `de` `es`
 
-## Common Language Codes
-
-- `ja`: Japanese
-- `zh-CN`: Simplified Chinese
-- `zh-TW`: Traditional Chinese
-- `en`: English
-- `ko`: Korean
-- `fr`: French
-- `de`: German
-- `es`: Spanish
+---
 
 ## Troubleshooting
 
-### `ffmpeg` Not Found
+**ffmpeg not found** — install, restart terminal, run `ffmpeg -version`.
 
-Install `ffmpeg`, restart the terminal, and confirm:
+**Empty SRT on music videos** — use `--song-mode --force-transcribe --force-translate`.
 
-```powershell
-ffmpeg -version
-```
+**Online translation rate-limited** — the tool falls back to local MarianMT for JA→ZH, or pass `--translation-backend local`.
 
-### Empty SRT For Music Videos
+**Glossary not applied** — run again with `--force-translate`.
 
-Enable song/music mode and regenerate:
+**First run slow** — Whisper (and optional MarianMT) models download once; larger Whisper sizes are slower on CPU.
 
-```powershell
-python translate_video.py "video.mp4" --source-language ja --target-language zh-CN --song-mode --force-transcribe --force-translate
-```
+**GUI opens a black console** — use `run_subtitle_translator.vbs` or recreate the desktop shortcut with `create_desktop_shortcut.ps1`.
 
-### Glossary Changes Do Not Appear
+---
 
-Regenerate translation:
+## License
 
-```powershell
-python translate_video.py "video.mp4" --source-language ja --target-language zh-CN --glossary glossary_template.csv --force-translate
-```
-
-### First Run Is Slow
-
-The first run downloads the Whisper model. Larger models like `medium` and `large-v3` are slower, especially on CPU.
-
-## Notes
-
-- Translation uses Google Translate mobile web requests, so it needs internet access.
-- For best transcription quality, use a larger Whisper model if your computer can handle it.
-- For best translation quality, use context-aware translation plus a glossary.
+See [LICENSE](LICENSE).

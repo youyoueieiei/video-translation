@@ -1,7 +1,10 @@
+# Core
 faster-whisper
 srt
 requests
 beautifulsoup4
+
+# Offline JA→ZH translation fallback (optional but recommended)
 transformers
 sentencepiece
 torch
