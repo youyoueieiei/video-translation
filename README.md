@@ -175,7 +175,7 @@ Creates a new merged SRT; original file is unchanged.
 
 ## Glossary
 
-Start from `glossary_template.csv`, or use the sample `glossary_deka_hoshi.csv`.
+Start from `glossary_template.csv`.
 
 ```csv
 source,target,mode,notes

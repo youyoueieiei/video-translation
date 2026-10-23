@@ -210,10 +210,9 @@ def parse_crf(label: str) -> int:
 
 
 def default_glossary() -> str:
-    for name in ("glossary_template.csv", "glossary_deka_hoshi.csv"):
-        candidate = APP_DIR / name
-        if candidate.exists():
-            return display_path(candidate)
+    candidate = APP_DIR / "glossary_template.csv"
+    if candidate.exists():
+        return display_path(candidate)
     return ""
 
 
