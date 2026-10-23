@@ -8,17 +8,26 @@ env/
 
 output/
 outputs/
+Process video/
+_burn_work/
 *.mp4
 *.mov
 *.mkv
 *.avi
+*.webm
+*.m4v
+*.ts
 *.wav
 *.mp3
 *.m4a
 *.aac
+*.flac
 *.srt
 *.ass
 *.vtt
+*.png
+*.jpg
+*.jpeg
 
 _subtitle_for_burn.srt
 _ffmpeg_subtitle_test.srt

@@ -57,20 +57,48 @@ winget install Gyan.FFmpeg
 
 Restart your terminal after installing `ffmpeg`.
 
+## Burn / Compress Only
+
+Burn an existing SRT/ASS into a video (same resolution, optional CRF compression):
+
+```powershell
+python burn_video.py "video.mp4" "subs.zh-CN.srt" -o "video.burned.mp4" --font-size 46 --crf 24
+```
+
+Also available as the **Burn / Compress** tab in the GUI.
+
+Supported inputs: `.mp4` `.mkv` `.mov` `.avi` `.webm` `.m4v`  
+Supported outputs: `.mp4` `.mkv`
+
 ## Quick Start
 
 ### GUI
 
-Double-click:
+From the parent `translation` folder, double-click:
+
+```text
+启动字幕翻译.bat
+```
+
+Or inside `video-translation`:
 
 ```text
 run_subtitle_translator.bat
+```
+
+You can also drag an `.mp4` onto either launcher to pre-fill the video path.
+
+Optional: create a Desktop shortcut
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\创建桌面快捷方式.ps1
 ```
 
 Or start the GUI from PowerShell:
 
 ```powershell
 python subtitle_translator_app.py
+python subtitle_translator_app.py "path\to\video.mp4"
 ```
 
 In the app:

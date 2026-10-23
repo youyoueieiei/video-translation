@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
@@ -15,6 +16,108 @@ import requests
 import srt
 from bs4 import BeautifulSoup
 from faster_whisper import WhisperModel
+
+
+# Soft throttle between online translate requests to reduce 429 rate limits.
+_TRANSLATE_MIN_INTERVAL_SECONDS = 2.5
+_last_translate_request_at = 0.0
+_prefer_mymemory = False
+_local_mt_tokenizer = None
+_local_mt_model = None
+_LOCAL_MT_MODEL_ID = "shun89/opus-mt-ja-zh"
+
+
+def _throttle_translate_request() -> None:
+    global _last_translate_request_at
+    elapsed = time.monotonic() - _last_translate_request_at
+    if elapsed < _TRANSLATE_MIN_INTERVAL_SECONDS:
+        time.sleep(_TRANSLATE_MIN_INTERVAL_SECONDS - elapsed)
+    _last_translate_request_at = time.monotonic()
+
+
+def _ensure_local_mt() -> None:
+    global _local_mt_tokenizer, _local_mt_model
+    if _local_mt_tokenizer is not None and _local_mt_model is not None:
+        return
+    try:
+        from transformers import MarianMTModel, MarianTokenizer
+    except ImportError as exc:
+        raise RuntimeError(
+            "Local translator requires `transformers`. Install with: pip install transformers sentencepiece"
+        ) from exc
+
+    print(f"Loading local MT model: {_LOCAL_MT_MODEL_ID}", flush=True)
+    _local_mt_tokenizer = MarianTokenizer.from_pretrained(_LOCAL_MT_MODEL_ID)
+    _local_mt_model = MarianMTModel.from_pretrained(_LOCAL_MT_MODEL_ID)
+    _local_mt_model.eval()
+    print("Local MT model ready.", flush=True)
+
+
+def _translate_with_local_mt(text: str) -> str:
+    import torch
+
+    _ensure_local_mt()
+    assert _local_mt_tokenizer is not None and _local_mt_model is not None
+    batch = _local_mt_tokenizer(
+        [text],
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=512,
+    )
+    with torch.no_grad():
+        generated = _local_mt_model.generate(**batch, max_new_tokens=256)
+    return _local_mt_tokenizer.decode(generated[0], skip_special_tokens=True).strip()
+
+
+def _translate_with_mymemory(text: str, source_language: str, target_language: str, timeout: int) -> str:
+    # MyMemory uses short language codes like zh-CN / ja.
+    response = requests.get(
+        "https://api.mymemory.translated.net/get",
+        params={"q": text, "langpair": f"{source_language}|{target_language}"},
+        timeout=timeout,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    translated = (
+        (payload.get("responseData") or {}).get("translatedText")
+        if isinstance(payload, dict)
+        else None
+    )
+    if not translated:
+        raise RuntimeError(f"MyMemory returned no translation: {payload}")
+    if "MYMEMORY WARNING" in translated:
+        raise RuntimeError(translated)
+    # MyMemory sometimes echoes the source when it fails quietly.
+    if translated.strip() == text.strip() and len(text.strip()) > 8:
+        raise RuntimeError("MyMemory returned unchanged source text")
+    return translated.strip()
+
+
+def _translate_with_google(text: str, source_language: str, target_language: str, timeout: int) -> str:
+    response = requests.get(
+        "https://translate.google.com/m",
+        params={"sl": source_language, "tl": target_language, "q": text},
+        headers={
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/122.0.0.0 Safari/537.36"
+            )
+        },
+        timeout=timeout,
+    )
+    if response.status_code == 429 or "google.com/sorry" in response.url:
+        raise requests.HTTPError(
+            f"429 Client Error: Too Many Requests for url: {response.url}",
+            response=response,
+        )
+    response.raise_for_status()
+    soup = BeautifulSoup(response.text, "html.parser")
+    element = soup.find("div", class_="result-container")
+    if element:
+        return element.get_text(strip=True)
+    raise RuntimeError("translation response did not include result text")
 
 
 @dataclass(frozen=True)
@@ -181,27 +284,105 @@ def restore_glossary_placeholders(text: str, replacements: dict[str, str]) -> st
     return restored
 
 
-def translate_text(text: str, source_language: str, target_language: str, timeout: int, retries: int) -> str:
+# Post-MT Chinese polish: fix common word-order / theater-announcement calques.
+# Longer phrases first.
+_CHINESE_POLISH_RULES: list[tuple[str, str]] = [
+    ("请把电源从电源里拉下来,拜托。", "请关闭设备的电源"),
+    ("请把电源从电源里拉下来，拜托。", "请关闭设备的电源"),
+    ("请把电源从电源里拉下来,拜托", "请关闭设备的电源"),
+    ("请把电源从电源里拉下来", "请关闭设备的电源"),
+    ("在观众席内没有许可的照片、录音、录像是坚定地拒绝", "观众席内未经许可的拍照、录音、录像是明令禁止的"),
+    ("没有许可的照片、录音、录像是坚定地拒绝", "未经许可的拍照、录音、录像是明令禁止的"),
+    ("是坚定地拒绝", "是明令禁止的"),
+    ("坚定地拒绝", "明令禁止"),
+    ("将设备放在那里,所以请谅解", "代为保管设备，敬请谅解"),
+    ("将设备放在那里，所以请谅解", "代为保管设备，敬请谅解"),
+    ("将设备放在那里", "代为保管设备"),
+    ("有手机、闹钟等声音出现的电子设备的顾客是", "携带手机、闹钟等会发出声音的电子设备的观众"),
+    ("声音出现的电子设备", "会发出声音的电子设备"),
+    ("Robby", "大厅"),
+    ("Roby", "大厅"),
+    ("客舱内", "观众席内"),
+    ("挑战星星", "抓住犯人"),
+    ("手里的星星", "亲手抓住犯人"),
+    ("用这双手做星星", "用这双手抓住犯人"),
+    ("用这双手挑战犯人", "用这双手抓住犯人"),
+    ("德卡篇", "刑警篇"),
+    ("马丁的刑警篇", "日场的刑警篇"),
+    ("苏亚雷斯", "夜场"),
+]
+
+
+def polish_translated_chinese(text: str) -> str:
+    polished = text
+    for source, target in _CHINESE_POLISH_RULES:
+        polished = polished.replace(source, target)
+    # デカ/刑事 = 刑警, not private-eye 侦探 (keep 怪侦探帕里斯)
+    polished = polished.replace("怪侦探", "\u0000")
+    polished = polished.replace("侦探", "刑警")
+    polished = polished.replace("\u0000", "怪侦探")
+    return polished
+
+
+def translate_text(
+    text: str,
+    source_language: str,
+    target_language: str,
+    timeout: int,
+    retries: int,
+    translator: str = "auto",
+) -> str:
     if not text.strip():
         return text
 
-    last_error: Exception | None = None
-    for _ in range(retries + 1):
+    # Offline MarianMT is reliable when online APIs are rate-limited.
+    if translator in {"local", "auto"} and source_language.startswith("ja") and target_language.startswith("zh"):
         try:
-            response = requests.get(
-                "https://translate.google.com/m",
-                params={"sl": source_language, "tl": target_language, "q": text},
-                headers={"User-Agent": "Mozilla/5.0"},
-                timeout=timeout,
+            return _translate_with_local_mt(text)
+        except Exception as local_exc:
+            if translator == "local":
+                raise RuntimeError(str(local_exc)) from local_exc
+            print(
+                f"Local MT failed; falling back to online translators. ({local_exc})",
+                file=sys.stderr,
+                flush=True,
             )
-            response.raise_for_status()
-            soup = BeautifulSoup(response.text, "html.parser")
-            element = soup.find("div", class_="result-container")
-            if element:
-                return element.get_text(strip=True)
-            raise RuntimeError("translation response did not include result text")
+
+    if translator == "local":
+        raise RuntimeError("Local translator is only supported for Japanese → Chinese.")
+
+
+    global _prefer_mymemory
+    last_error: Exception | None = None
+    attempt_limit = max(retries, 3) + 1
+    for attempt in range(attempt_limit):
+        try:
+            _throttle_translate_request()
+            if _prefer_mymemory:
+                return _translate_with_mymemory(text, source_language, target_language, timeout)
+            try:
+                return _translate_with_google(text, source_language, target_language, timeout)
+            except Exception as google_exc:
+                if "429" in str(google_exc) or "Too Many Requests" in str(google_exc):
+                    _prefer_mymemory = True
+                    print(
+                        "Google Translate rate-limited; switching to MyMemory fallback.",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                    return _translate_with_mymemory(text, source_language, target_language, timeout)
+                raise
         except Exception as exc:
             last_error = exc
+            is_rate_limited = "429" in str(exc) or "Too Many Requests" in str(exc) or "MYMEMORY WARNING" in str(exc)
+            if attempt < attempt_limit - 1:
+                delay = min(90.0, (2 ** attempt) * (4.0 if is_rate_limited else 1.0))
+                print(
+                    f"Translation retry {attempt + 1}/{attempt_limit - 1} after {delay:.1f}s ({exc})",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                time.sleep(delay)
 
     raise RuntimeError(str(last_error) if last_error else "translation failed")
 
@@ -242,6 +423,7 @@ def translate_context_batch(
     target_language: str,
     timeout: int,
     retries: int,
+    translator: str = "auto",
 ) -> list[str] | None:
     translated_block = translate_text(
         build_context_block(lines),
@@ -249,6 +431,7 @@ def translate_context_batch(
         target_language=target_language,
         timeout=timeout,
         retries=retries,
+        translator=translator,
     )
     return parse_numbered_translation_block(translated_block, expected_count=len(lines))
 
@@ -262,8 +445,12 @@ def translate_subtitles(
     glossary_entries: list[GlossaryEntry],
     translation_mode: str,
     context_size: int,
+    translator: str = "auto",
+    checkpoint_path: Path | None = None,
 ) -> list[SubtitleLine]:
-    if translation_mode == "context":
+    # Local MT does not reliably keep numbered context blocks; use line-by-line.
+    effective_mode = "fast" if translator == "local" else translation_mode
+    if effective_mode == "context":
         return translate_subtitles_with_context(
             lines=lines,
             source_language=source_language,
@@ -272,6 +459,8 @@ def translate_subtitles(
             retries=retries,
             glossary_entries=glossary_entries,
             context_size=context_size,
+            translator=translator,
+            checkpoint_path=checkpoint_path,
         )
 
     translated: list[SubtitleLine] = []
@@ -288,6 +477,7 @@ def translate_subtitles(
                 target_language=target_language,
                 timeout=timeout,
                 retries=retries,
+                translator=translator,
             )
         except Exception as exc:
             print(
@@ -298,9 +488,8 @@ def translate_subtitles(
             translated_text = line.text
 
         translated_text = restore_glossary_placeholders(translated_text, glossary_replacements)
-
-        if position == 1 or position % 10 == 0 or position == len(lines):
-            print(f"Translated {position}/{len(lines)} subtitle lines...", flush=True)
+        if target_language.startswith("zh"):
+            translated_text = polish_translated_chinese(translated_text)
 
         translated.append(
             SubtitleLine(
@@ -310,6 +499,11 @@ def translate_subtitles(
                 text=translated_text.strip() if translated_text else line.text,
             )
         )
+
+        if position == 1 or position % 50 == 0 or position == len(lines):
+            print(f"Translated {position}/{len(lines)} subtitle lines...", flush=True)
+            if checkpoint_path is not None:
+                checkpoint_path.write_text(to_srt(translated), encoding="utf-8")
 
     return translated
 
@@ -322,6 +516,8 @@ def translate_subtitles_with_context(
     retries: int,
     glossary_entries: list[GlossaryEntry],
     context_size: int,
+    translator: str = "auto",
+    checkpoint_path: Path | None = None,
 ) -> list[SubtitleLine]:
     translated: list[SubtitleLine] = []
     safe_context_size = max(2, context_size)
@@ -347,6 +543,7 @@ def translate_subtitles_with_context(
                 target_language=target_language,
                 timeout=timeout,
                 retries=retries,
+                translator=translator,
             )
         except Exception as exc:
             print(
@@ -367,6 +564,7 @@ def translate_subtitles_with_context(
                             target_language=target_language,
                             timeout=timeout,
                             retries=retries,
+                            translator=translator,
                         )
                     )
                 except Exception as exc:
@@ -380,6 +578,8 @@ def translate_subtitles_with_context(
 
         for source_line, translated_text, replacements in zip(batch, translated_texts, batch_replacements):
             translated_text = restore_glossary_placeholders(translated_text, replacements)
+            if target_language.startswith("zh"):
+                translated_text = polish_translated_chinese(translated_text)
             translated.append(
                 SubtitleLine(
                     index=source_line.index,
@@ -389,7 +589,11 @@ def translate_subtitles_with_context(
                 )
             )
 
-        print(f"Translated {len(translated)}/{len(lines)} subtitle lines...", flush=True)
+        done = len(translated)
+        if done == len(lines) or done % 50 == 0:
+            print(f"Translated {done}/{len(lines)} subtitle lines...", flush=True)
+            if checkpoint_path is not None:
+                checkpoint_path.write_text(to_srt(translated), encoding="utf-8")
 
     return translated
 
@@ -562,6 +766,13 @@ def parse_args() -> argparse.Namespace:
         help="Optional start time to begin translating (format: HH:MM:SS, MM:SS, or seconds). "
         "Lines that end before this time will be copied unchanged into the translated SRT.",
     )
+    parser.add_argument(
+        "--translator",
+        choices=["auto", "local", "online"],
+        default="auto",
+        help="Translation backend. `local` uses offline MarianMT (ja→zh), `online` uses Google/MyMemory, "
+        "`auto` prefers local for ja→zh then falls back online. Default: auto.",
+    )
     return parser.parse_args()
 
 
@@ -638,6 +849,10 @@ def main() -> int:
                     glossary_entries=glossary_entries,
                     translation_mode=args.translation_mode,
                     context_size=args.context_size,
+                    translator=args.translator,
+                    checkpoint_path=translated_srt_path.with_suffix(
+                        translated_srt_path.suffix + ".partial"
+                    ),
                 )
                 # Map index -> translated text for replaced lines
                 translated_map = {l.index: l.text for l in translated_subset}

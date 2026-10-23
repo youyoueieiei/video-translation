@@ -1,25 +1,27 @@
 @echo off
-setlocal
+REM Double-click: open GUI only. Optional: drop an MP4 onto this file to pre-fill it.
 cd /d "%~dp0"
 
+where pythonw >nul 2>nul
+if errorlevel 1 goto :use_python
+
+if "%~1"=="" (
+  start "" /D "%~dp0" pythonw "%~dp0subtitle_translator_app.py"
+) else (
+  start "" /D "%~dp0" pythonw "%~dp0subtitle_translator_app.py" "%~1"
+)
+exit /b 0
+
+:use_python
 where python >nul 2>nul
 if errorlevel 1 (
-  echo Python was not found on PATH.
-  echo Please install Python, then run this launcher again.
+  echo Python was not found. Install Python 3.10+ and check "Add to PATH".
   pause
   exit /b 1
 )
-
-python -c "import faster_whisper, srt, requests, bs4" >nul 2>nul
-if errorlevel 1 (
-  echo Installing Python dependencies...
-  python -m pip install -r requirements.txt
-  if errorlevel 1 (
-    echo Failed to install dependencies.
-    pause
-    exit /b 1
-  )
+if "%~1"=="" (
+  start "" /D "%~dp0" python "%~dp0subtitle_translator_app.py"
+) else (
+  start "" /D "%~dp0" python "%~dp0subtitle_translator_app.py" "%~1"
 )
-
-python subtitle_translator_app.py
-endlocal
+exit /b 0

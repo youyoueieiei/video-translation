@@ -2,3 +2,6 @@ faster-whisper
 srt
 requests
 beautifulsoup4
+transformers
+sentencepiece
+torch

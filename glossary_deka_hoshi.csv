@@ -1,0 +1,72 @@
+source,target,mode,notes
+デカ×ホシ,刑警×星,replace,Official title pun: デカ=刑警 / ホシ=星+犯人; keep 星 in the billed title
+デカ✕ホシ,刑警×星,replace,Alternate multiplication sign variant
+『デカ×ホシ』,『刑警×星』,replace,Quoted title form
+舞台公演『デカ×ホシ』,舞台公演『刑警×星』,replace,Full billed show title
+デカ編,刑警篇,replace,SHOW-WA detective-side story title
+デッカ編,刑警篇,replace,ASR variant of デカ編
+デッカ,刑警,replace,ASR variant of デカ
+デカ,刑警,replace,Police slang for 刑事; title forms above are longer so they win first
+ホシ編,星篇,replace,MATSURI criminal-side story title (branded 星; in-dialogue ホシ is 犯人)
+この手で星を,用这双手抓住犯人,replace,Police catchphrase: ホシ=目星/犯人 not star
+この手でホシを,用这双手抓住犯人,replace,Katakana form of the same catchphrase
+手で星を,亲手抓住犯人,replace,Short sung/spoken form of この手でホシを
+手でホシを,亲手抓住犯人,replace,Katakana short form
+マチネ,日场,replace,Matinee performance
+ソアレ,夜场,replace,Soirée / evening performance
+刑事,刑警,replace,Police detective; do not render as 侦探
+シンクロ・デュアル・ステージ,同步双视角舞台,replace,Official dual synchronized staging concept
+怪探偵パリス,怪侦探帕里斯,replace,In-story manga title from Hoshi synopsis
+偽星,伪星,replace,Theft gang nickname (counterfeit star)
+捜査三課,搜查三课,replace,Police Squad 3
+捜査一課,搜查一课,replace,Police Squad 1
+捜査3課,搜查三课,replace,Arabic-numeral variant of Squad 3
+捜査１課,搜查一课,replace,Fullwidth-numeral variant of Squad 1
+外澤,外泽,replace,Detective character name (simplified)
+外沢,外泽,replace,Alternate kanji for same character
+本田馨,本田馨,protect,Deceased detective / facility alumni name
+赤星,赤星,protect,Lead detective (SHOW-WA / 盐田将己)
+赤尾,赤星,replace,ASR mishear of 赤星
+赤丘,赤星,replace,ASR mishear of 赤星
+赤押し,赤星,replace,ASR mishear of 赤星
+赤推し,赤星,replace,ASR mishear of 赤星
+赤押,赤星,replace,ASR mishear of 赤星
+赤推,赤星,replace,ASR mishear of 赤星
+明神,明神,protect,Detective character (寺田真二郎)
+明治さん,明神さん,replace,ASR mishear of 明神
+西久保,西久保,protect,Detective character (向山毅)
+土居,土居,protect,Detective character (青山隼)
+藤峰,藤峰,protect,Junior officer held hostage (染谷俊之)
+藤村,藤峰,replace,ASR mishear of 藤峰
+藤宮,藤峰,replace,ASR mishear of 藤峰
+上杉,上杉,protect,Squad 1 digital detective (井筒雄太)
+本田,本田,protect,Martyred junior detective (和田琢磨)
+梶山,梶山,protect,Facility childhood friend visitor (Hoshi arc)
+戸沢,外泽,replace,ASR mishear of 外澤
+鳥沢,外泽,replace,ASR mishear of 外澤
+ニセホシ,伪星,replace,ASR/katakana for gang nickname 偽星
+デカホシ,刑警×星,replace,ASR title without ×
+デカ星,刑警×星,replace,ASR title variant
+井筒,井筒,protect,Actor name (上杉役 / 井筒雄太)
+伊豆津,井筒,replace,ASR mishear of 井筒
+SHOW-WA,SHOW-WA,protect,Performer group / Deka cast
+MATSURI,MATSURI,protect,Performer group / Hoshi cast
+I'M A SHOW,I'M A SHOW,protect,Venue brand name
+IM A SHOW,I'M A SHOW,protect,ASR variant without apostrophe
+尾上松也,尾上松也,protect,Director name
+川名幸宏,川名幸宏,protect,Scriptwriter name
+桑原まこ,桑原まこ,protect,Composer name
+千穐楽,千秋乐,replace,Final performance day term
+アジト,据点,replace,Gang hideout
+宝石商,宝石商,protect,Jewelry merchant (target of thefts)
+児童養護施設,儿童福利院,replace,Shared orphanage backstory
+突入,突入,protect,Raid entry term kept consistent in stage dialogue
+客席内での許可のない写真撮影、録音、録画は堅くお断りしております,观众席内未经许可的拍照、录音、录像是明令禁止的,replace,Theater announcement
+堅くお断りしております,是明令禁止的,replace,Formal refusal in announcements
+発見した際は、スタッフが機器をお預かりいたしますので、ご了承ください,一经发现，工作人员将代为保管设备，敬请谅解,replace,Theater announcement
+機器をお預かり,代为保管设备,replace,Staff hold confiscated devices
+携帯電話、アラーム付き時計等の音の出る電子機器をお持ちのお客様は,携带手机、闹钟等会发出声音的电子设备的观众,replace,Theater announcement
+電源からお切りくださいますようお願いいたします,请关闭设备的电源,replace,Theater announcement
+電源からお切り,请关闭电源,replace,Do not calque 電源から as pull the plug
+ロビー,大厅,replace,Venue lobby
+ロビー、客席内でのお食事はお断りいたします,大厅和观众席内禁止用餐,replace,Theater announcement
