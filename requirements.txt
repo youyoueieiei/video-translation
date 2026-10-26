@@ -1,5 +1,6 @@
 # Core
 faster-whisper
+av<19
 srt
 requests
 beautifulsoup4

@@ -31,8 +31,8 @@ CRF_PRESETS = ["18 (更高画质)", "20", "22", "24 (推荐)", "26", "28 (更小
 
 QUALITY_MODE_LABELS = {
     "English": [
-        "Fast Google (line by line)",
-        "Better Context Google (grouped subtitles)",
+        "Fast (line by line)",
+        "Better context (grouped subtitles)",
     ],
     "中文": [
         "快速翻译（逐行）",
@@ -41,10 +41,24 @@ QUALITY_MODE_LABELS = {
 }
 
 QUALITY_MODE_VALUES = {
-    "Fast Google (line by line)": "fast",
-    "Better Context Google (grouped subtitles)": "context",
+    "Fast (line by line)": "fast",
+    "Better context (grouped subtitles)": "context",
     "快速翻译（逐行）": "fast",
     "更好上下文（分组字幕）": "context",
+}
+
+TRANSLATOR_LABELS = {
+    "English": ["Local (Japanese -> Chinese)", "Automatic (local/online)", "LLM API"],
+    "中文": ["本地日中翻译", "自动（本地/在线）", "大模型 API"],
+}
+
+TRANSLATOR_VALUES = {
+    "Local (Japanese -> Chinese)": "local",
+    "Automatic (local/online)": "auto",
+    "LLM API": "llm",
+    "本地日中翻译": "local",
+    "自动（本地/在线）": "auto",
+    "大模型 API": "llm",
 }
 
 TEXT = {
@@ -66,10 +80,11 @@ TEXT = {
         "output_language": "Output Language",
         "whisper_model": "Whisper Model",
         "translation_quality": "Translation Quality",
+        "translation_backend": "Translation engine",
         "browse": "Browse...",
         "export_options": "Export Options",
         "burn_video": "Also burn subtitles into a new MP4",
-        "song_mode": "Song / lyrics mode",
+        "disable_vad": "Disable speech filter for performances/noisy audio (may repeat lines)",
         "force_transcribe": "Force re-transcribe even if source SRT exists",
         "force_translate": "Force re-translate even if translated SRT exists",
         "burn_files": "Input / Output",
@@ -85,6 +100,8 @@ TEXT = {
         "burn_crf": "Quality (CRF)",
         "burn_start": "Start burn",
         "start": "Start",
+        "transcribe_only": "Extract source subtitles only",
+        "translate_only": "Translate existing subtitles only",
         "stop": "Stop",
         "open_output": "Open Output Folder",
         "log": "Log",
@@ -109,9 +126,13 @@ TEXT = {
         "output_missing_title": "No output folder",
         "output_missing_message": "Set or create an output folder first.",
         "starting": "Starting subtitle translation...",
+        "starting_transcribe_only": "Extracting source subtitles only...",
+        "starting_translate_only": "Translating existing source subtitles...",
         "starting_burn": "Starting burn / compress...",
         "command": "Command:",
         "done": "Done. Translated SRT exported successfully.",
+        "done_transcribe_only": "Done. Review the source-language SRT before translating.",
+        "done_translate_only": "Done. Translated SRT exported successfully.",
         "done_burn": "Done. Subtitled video exported successfully.",
         "failed": "Failed with exit code",
         "error": "Error",
@@ -135,10 +156,11 @@ TEXT = {
         "output_language": "输出语言",
         "whisper_model": "Whisper 模型",
         "translation_quality": "翻译质量",
+        "translation_backend": "翻译引擎",
         "browse": "浏览...",
         "export_options": "导出选项",
         "burn_video": "同时生成带字幕的新 MP4",
-        "song_mode": "歌曲 / 歌词模式",
+        "disable_vad": "演出/嘈杂音频关闭语音过滤（可能重复转写）",
         "force_transcribe": "强制重新转录（即使源字幕已存在）",
         "force_translate": "强制重新翻译（即使译文已存在）",
         "burn_files": "输入 / 输出",
@@ -154,6 +176,8 @@ TEXT = {
         "burn_crf": "画质 (CRF)",
         "burn_start": "开始压制",
         "start": "开始",
+        "transcribe_only": "仅提取源语言字幕",
+        "translate_only": "仅翻译现有字幕",
         "stop": "停止",
         "open_output": "打开输出目录",
         "log": "日志",
@@ -178,9 +202,13 @@ TEXT = {
         "output_missing_title": "没有输出目录",
         "output_missing_message": "请先设置输出文件夹。",
         "starting": "开始字幕翻译…",
+        "starting_transcribe_only": "仅提取源语言字幕…",
+        "starting_translate_only": "翻译现有源语言字幕…",
         "starting_burn": "开始压制 / 烧录…",
         "command": "命令：",
         "done": "完成。已成功导出翻译 SRT。",
+        "done_transcribe_only": "完成。请先检查源语言 SRT，再执行翻译。",
+        "done_translate_only": "完成。已成功导出翻译 SRT。",
         "done_burn": "完成。已成功导出带字幕视频。",
         "failed": "失败，退出代码",
         "error": "错误",
@@ -198,6 +226,10 @@ def language_code(value: str) -> str:
 
 def translation_mode(value: str) -> str:
     return QUALITY_MODE_VALUES.get(value, "fast")
+
+
+def translator_backend(value: str) -> str:
+    return TRANSLATOR_VALUES.get(value, "auto")
 
 
 def display_path(path: Path | str) -> str:
@@ -242,8 +274,9 @@ class SubtitleTranslatorApp(tk.Tk):
         self.target_language = tk.StringVar(value="Chinese Simplified (zh-CN)")
         self.model_size = tk.StringVar(value="medium")
         self.quality_mode = tk.StringVar(value=QUALITY_MODE_LABELS["中文"][1])
+        self.translator = tk.StringVar(value=TRANSLATOR_LABELS["中文"][0])
         self.burn_video = tk.BooleanVar(value=False)
-        self.song_mode = tk.BooleanVar(value=False)
+        self.disable_vad = tk.BooleanVar(value=False)
         self.force_transcribe = tk.BooleanVar(value=False)
         self.force_translate = tk.BooleanVar(value=False)
 
@@ -411,6 +444,19 @@ class SubtitleTranslatorApp(tk.Tk):
         quality_combo.grid(row=1, column=3, sticky=tk.EW, pady=5)
         self.widgets["quality_combo"] = quality_combo
 
+        self.widgets["translation_backend_label"] = ttk.Label(translation_frame, text="")
+        self.widgets["translation_backend_label"].grid(
+            row=2, column=0, sticky=tk.W, padx=(0, 12), pady=5
+        )
+        translator_combo = ttk.Combobox(
+            translation_frame,
+            textvariable=self.translator,
+            values=TRANSLATOR_LABELS["中文"],
+            state="readonly",
+        )
+        translator_combo.grid(row=2, column=1, columnspan=3, sticky=tk.EW, pady=5)
+        self.widgets["translator_combo"] = translator_combo
+
         options = ttk.LabelFrame(parent, text="导出选项", padding=10)
         options.grid(row=3, column=0, sticky=tk.EW, pady=(0, 10))
         options.columnconfigure(0, weight=1)
@@ -418,8 +464,8 @@ class SubtitleTranslatorApp(tk.Tk):
         self.widgets["options_frame"] = options
         self.widgets["burn_video_check"] = ttk.Checkbutton(options, text="", variable=self.burn_video)
         self.widgets["burn_video_check"].grid(row=0, column=0, sticky=tk.W, pady=3)
-        self.widgets["song_mode_check"] = ttk.Checkbutton(options, text="", variable=self.song_mode)
-        self.widgets["song_mode_check"].grid(row=0, column=1, sticky=tk.W, pady=3)
+        self.widgets["disable_vad_check"] = ttk.Checkbutton(options, text="", variable=self.disable_vad)
+        self.widgets["disable_vad_check"].grid(row=0, column=1, sticky=tk.W, pady=3)
         self.widgets["force_transcribe_check"] = ttk.Checkbutton(
             options, text="", variable=self.force_transcribe
         )
@@ -429,8 +475,25 @@ class SubtitleTranslatorApp(tk.Tk):
         )
         self.widgets["force_translate_check"].grid(row=1, column=1, sticky=tk.W, pady=3)
 
-        self.start_button = ttk.Button(parent, text="开始", command=self._start_translate)
-        self.start_button.grid(row=4, column=0, sticky=tk.E)
+        actions = ttk.Frame(parent)
+        actions.grid(row=4, column=0, sticky=tk.EW)
+        actions.columnconfigure(0, weight=1)
+        self.transcribe_only_button = ttk.Button(
+            actions,
+            text=self._text("transcribe_only"),
+            command=lambda: self._start_translate(stage="transcribe"),
+        )
+        self.transcribe_only_button.grid(row=0, column=0, sticky=tk.W)
+        self.translate_only_button = ttk.Button(
+            actions,
+            text=self._text("translate_only"),
+            command=lambda: self._start_translate(stage="translate"),
+        )
+        self.translate_only_button.grid(row=0, column=1, sticky=tk.E, padx=(0, 8))
+        self.start_button = ttk.Button(
+            actions, text=self._text("start"), command=self._start_translate
+        )
+        self.start_button.grid(row=0, column=2, sticky=tk.E)
 
     def _build_burn_tab(self, parent: ttk.Frame) -> None:
         parent.columnconfigure(0, weight=1)
@@ -540,6 +603,13 @@ class SubtitleTranslatorApp(tk.Tk):
         if isinstance(quality_combo, ttk.Combobox):
             quality_combo.configure(values=labels)
 
+        translator_labels = TRANSLATOR_LABELS[self.ui_language.get()]
+        current_translator = translator_backend(self.translator.get())
+        self.translator.set(translator_labels[1] if current_translator == "llm" else translator_labels[0])
+        translator_combo = self.widgets.get("translator_combo")
+        if isinstance(translator_combo, ttk.Combobox):
+            translator_combo.configure(values=translator_labels)
+
         self.title(self._text("app_title"))
         self.widgets["title"].configure(text=self._text("app_title"))
         self.widgets["ui_language_label"].configure(text=self._text("ui_language"))
@@ -565,6 +635,7 @@ class SubtitleTranslatorApp(tk.Tk):
             "output_language_label",
             "whisper_model_label",
             "translation_quality_label",
+            "translation_backend_label",
             "burn_video_label",
             "burn_srt_label",
             "burn_output_label",
@@ -583,6 +654,7 @@ class SubtitleTranslatorApp(tk.Tk):
                 "output_language_label": "output_language",
                 "whisper_model_label": "whisper_model",
                 "translation_quality_label": "translation_quality",
+                "translation_backend_label": "translation_backend",
                 "burn_video_label": "burn_video_label",
                 "burn_srt_label": "burn_srt_label",
                 "burn_output_label": "burn_output_label",
@@ -604,10 +676,12 @@ class SubtitleTranslatorApp(tk.Tk):
             self.widgets[key].configure(text=self._text("browse"))
 
         self.widgets["burn_video_check"].configure(text=self._text("burn_video"))
-        self.widgets["song_mode_check"].configure(text=self._text("song_mode"))
+        self.widgets["disable_vad_check"].configure(text=self._text("disable_vad"))
         self.widgets["force_transcribe_check"].configure(text=self._text("force_transcribe"))
         self.widgets["force_translate_check"].configure(text=self._text("force_translate"))
         self.widgets["burn_one_line_check"].configure(text=self._text("burn_one_line"))
+        self.transcribe_only_button.configure(text=self._text("transcribe_only"))
+        self.translate_only_button.configure(text=self._text("translate_only"))
         self.start_button.configure(text=self._text("start"))
         self.burn_start_button.configure(text=self._text("burn_start"))
         self.open_output_button.configure(text=self._text("open_output"))
@@ -722,7 +796,7 @@ class SubtitleTranslatorApp(tk.Tk):
         else:
             subprocess.run(["xdg-open", str(folder)], check=False)
 
-    def _start_translate(self) -> None:
+    def _start_translate(self, stage: str = "full") -> None:
         video = self.video_path.get().strip()
         if not video:
             messagebox.showerror(self._text("missing_video_title"), self._text("missing_video_message"))
@@ -747,23 +821,34 @@ class SubtitleTranslatorApp(tk.Tk):
             self.model_size.get(),
             "--translation-mode",
             translation_mode(self.quality_mode.get()),
+            "--translator",
+            translator_backend(self.translator.get()),
         ]
+        if stage == "transcribe":
+            command.append("--transcribe-only")
+        elif stage == "translate":
+            command.extend(["--translate-only", "--force-translate"])
         if self.output_dir.get().strip():
             command.extend(["--output-dir", self.output_dir.get().strip()])
         if self.glossary_path.get().strip():
             command.extend(["--glossary", self.glossary_path.get().strip()])
         if self.translate_start.get().strip():
             command.extend(["--translate-start", self.translate_start.get().strip()])
-        if self.burn_video.get():
+        if self.burn_video.get() and stage == "full":
             command.append("--burn")
-        if self.song_mode.get():
-            command.append("--song-mode")
-        if self.force_transcribe.get():
+        if self.disable_vad.get():
+            command.append("--no-vad-filter")
+        if self.force_transcribe.get() and stage == "full":
             command.append("--force-transcribe")
-        if self.force_translate.get():
+        if self.force_translate.get() and stage == "full":
             command.append("--force-translate")
 
-        self._launch_command(command, starting_key="starting", done_key="done")
+        stage_keys = {
+            "transcribe": ("starting_transcribe_only", "done_transcribe_only"),
+            "translate": ("starting_translate_only", "done_translate_only"),
+        }
+        starting_key, done_key = stage_keys.get(stage, ("starting", "done"))
+        self._launch_command(command, starting_key=starting_key, done_key=done_key)
 
     def _start_burn(self) -> None:
         video = self.burn_input_video.get().strip()
@@ -882,6 +967,8 @@ class SubtitleTranslatorApp(tk.Tk):
     def _set_running(self, running: bool) -> None:
         state_start = tk.DISABLED if running else tk.NORMAL
         self.start_button.configure(state=state_start)
+        self.transcribe_only_button.configure(state=state_start)
+        self.translate_only_button.configure(state=state_start)
         self.burn_start_button.configure(state=state_start)
         self.stop_button.configure(state=tk.NORMAL if running else tk.DISABLED)
         self.status_text.set(self._text("status_running" if running else "status_idle"))

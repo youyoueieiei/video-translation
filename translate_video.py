@@ -120,6 +120,48 @@ def _translate_with_google(text: str, source_language: str, target_language: str
     raise RuntimeError("translation response did not include result text")
 
 
+def _translate_with_llm(text: str, source_language: str, target_language: str, timeout: int) -> str:
+    api_key = os.getenv("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        raise RuntimeError("LLM translation requires the OPENAI_API_KEY environment variable.")
+
+    base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").strip().rstrip("/")
+    model = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
+    response = requests.post(
+        f"{base_url}/chat/completions",
+        headers={"Authorization": f"Bearer {api_key}"},
+        json={
+            "model": model,
+            "temperature": 0.2,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        f"Translate subtitles from {source_language} to {target_language}. "
+                        "Preserve meaning, speaker intent, names, line breaks, and numbered prefixes. "
+                        "Keep glossary placeholders exactly unchanged. Use concise, natural dialogue. "
+                        "Return only the translated subtitles, with no explanation."
+                    ),
+                },
+                {"role": "user", "content": text},
+            ],
+        },
+        timeout=timeout,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    choices = payload.get("choices") if isinstance(payload, dict) else None
+    message = choices[0].get("message") if choices else None
+    content = message.get("content") if isinstance(message, dict) else None
+    if isinstance(content, list):
+        content = "".join(
+            part.get("text", "") for part in content if isinstance(part, dict)
+        )
+    if not isinstance(content, str) or not content.strip():
+        raise RuntimeError("LLM API response did not include translated text.")
+    return content.strip()
+
+
 @dataclass(frozen=True)
 class SubtitleLine:
     index: int
@@ -269,15 +311,25 @@ def apply_glossary_placeholders(
             continue
 
         placeholder = f"ZXQGLOSSARY{index}QXZ"
+        legacy_placeholder = placeholder.replace("GLOSSARY", "LOSSARY")
         protected_text = protected_text.replace(entry.source, placeholder)
-        replacements[placeholder] = entry.target if entry.mode == "replace" else entry.source
+        replacement_value = entry.target if entry.mode == "replace" else entry.source
+        replacements[placeholder] = replacement_value
+        replacements[legacy_placeholder] = replacement_value
 
     return protected_text, replacements
 
 
 def restore_glossary_placeholders(text: str, replacements: dict[str, str]) -> str:
     restored = text
+    alias_replacements: dict[str, str] = {}
     for placeholder, replacement in replacements.items():
+        alias_replacements[placeholder] = replacement
+        legacy_placeholder = placeholder.replace("GLOSSARY", "LOSSARY")
+        if legacy_placeholder != placeholder:
+            alias_replacements[legacy_placeholder] = replacement
+
+    for placeholder, replacement in alias_replacements.items():
         restored = restored.replace(placeholder, replacement)
         restored = restored.replace(placeholder.lower(), replacement)
         restored = restored.replace(placeholder.title(), replacement)
@@ -350,6 +402,8 @@ def translate_text(
 
     if translator == "local":
         raise RuntimeError("Local translator is only supported for Japanese → Chinese.")
+    if translator == "llm" and not os.getenv("OPENAI_API_KEY", "").strip():
+        raise RuntimeError("LLM translation requires the OPENAI_API_KEY environment variable.")
 
 
     global _prefer_mymemory
@@ -358,6 +412,8 @@ def translate_text(
     for attempt in range(attempt_limit):
         try:
             _throttle_translate_request()
+            if translator == "llm":
+                return _translate_with_llm(text, source_language, target_language, timeout)
             if _prefer_mymemory:
                 return _translate_with_mymemory(text, source_language, target_language, timeout)
             try:
@@ -686,6 +742,17 @@ def parse_args() -> argparse.Namespace:
         default="zh-CN",
         help="Output translation language code, e.g. zh-CN, en, ja, ko. Default: zh-CN.",
     )
+    stage_group = parser.add_mutually_exclusive_group()
+    stage_group.add_argument(
+        "--transcribe-only",
+        action="store_true",
+        help="Only extract source-language subtitles; do not translate or burn them.",
+    )
+    stage_group.add_argument(
+        "--translate-only",
+        action="store_true",
+        help="Translate the existing source-language SRT without extracting audio or transcribing.",
+    )
     parser.add_argument(
         "--output-dir",
         default=None,
@@ -718,8 +785,10 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--song-mode",
+        "--no-vad-filter",
+        dest="disable_vad",
         action="store_true",
-        help="Disable voice activity filtering. Useful for music videos, songs, and lyrics.",
+        help="Disable voice activity filtering. --song-mode is retained as a legacy alias.",
     )
     parser.add_argument(
         "--force-transcribe",
@@ -768,10 +837,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--translator",
-        choices=["auto", "local", "online"],
-        default="auto",
+        choices=["auto", "local", "online", "llm"],
+        default="local",
         help="Translation backend. `local` uses offline MarianMT (ja→zh), `online` uses Google/MyMemory, "
-        "`auto` prefers local for ja→zh then falls back online. Default: auto.",
+        "`auto` prefers local for ja→zh then falls back online, `llm` uses an OpenAI-compatible API. "
+        "Default: local.",
     )
     return parser.parse_args()
 
@@ -802,7 +872,17 @@ def main() -> int:
 
         audio_was_extracted = False
         source_lines: list[SubtitleLine] = []
-        if source_srt_path.exists() and not args.force_transcribe:
+        if args.translate_only:
+            if not source_srt_path.is_file():
+                raise RuntimeError(
+                    f"Source subtitle file not found: {source_srt_path}. Run with --transcribe-only first."
+                )
+            source_lines = from_srt(source_srt_path.read_text(encoding="utf-8-sig"))
+            if not source_lines:
+                raise RuntimeError(f"Source subtitle file is empty: {source_srt_path}")
+            print(f"Using source subtitles for translation: {source_srt_path}")
+
+        if not args.translate_only and source_srt_path.exists() and not args.force_transcribe and not args.transcribe_only:
             print(f"1/4 Reusing source subtitles: {source_srt_path}")
             source_lines = from_srt(source_srt_path.read_text(encoding="utf-8"))
 
@@ -821,7 +901,7 @@ def main() -> int:
                 model_size=args.model_size,
                 device=args.device,
                 compute_type=args.compute_type,
-                vad_filter=not args.song_mode,
+                vad_filter=not args.disable_vad,
             )
             if not source_lines:
                 raise RuntimeError(
@@ -830,7 +910,16 @@ def main() -> int:
             source_srt_path.write_text(to_srt(source_lines), encoding="utf-8")
             print(f"Wrote source subtitles: {source_srt_path}")
 
-        if translated_srt_path.exists() and not args.force_translate:
+        if args.transcribe_only:
+            if audio_was_extracted and not args.keep_audio:
+                try:
+                    os.remove(audio_path)
+                except FileNotFoundError:
+                    pass
+            print("Transcription-only run complete. Review the source SRT before translating.")
+            return 0
+
+        if translated_srt_path.exists() and not args.force_translate and not args.translate_only:
             print(f"3/4 Reusing translated subtitles: {translated_srt_path}")
         else:
             translate_start_seconds = parse_time_to_seconds(args.translate_start)

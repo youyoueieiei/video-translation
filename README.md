@@ -81,8 +81,9 @@ python subtitle_translator_app.py "path\to\video.mp4"
 1. Choose input video and output folder  
 2. Optional glossary CSV  
 3. Source / target language, Whisper model, translation quality  
-4. Optional: burn into MP4, song mode, force re-transcribe / re-translate  
-5. Click **Start**
+4. Click **Extract source subtitles only** to create and review the Japanese SRT  
+5. After checking it, click **Translate existing subtitles only** to create the Chinese SRT  
+6. Use **Start** for the complete workflow; optional: burn into MP4 or force a full re-run
 
 ### Burn / Compress tab
 
@@ -102,6 +103,18 @@ python subtitle_translator_app.py "path\to\video.mp4"
 python translate_video.py "video.mp4" --source-language ja --target-language zh-CN
 ```
 
+Extract Japanese subtitles only (creates/replaces the `.ja.srt` file):
+
+```powershell
+python translate_video.py "video.mp4" --source-language ja --transcribe-only
+```
+
+After reviewing or editing that SRT, translate it only (creates/replaces the `.ja.zh-CN.srt` file):
+
+```powershell
+python translate_video.py "video.mp4" --source-language ja --target-language zh-CN --translate-only
+```
+
 Context-aware + glossary:
 
 ```powershell
@@ -109,6 +122,25 @@ python translate_video.py "video.mp4" `
   --source-language ja --target-language zh-CN `
   --translation-mode context `
   --glossary glossary_template.csv
+```
+
+### LLM translation API
+
+The GUI offers an optional **LLM API** translation engine. It uses an OpenAI-compatible
+Chat Completions endpoint; the existing automatic backend remains the default. Configure
+these as Windows user environment variables before launching the app:
+
+- `OPENAI_API_KEY` — API key from your provider
+- `OPENAI_MODEL` — model name (defaults to `gpt-4o-mini`)
+- `OPENAI_BASE_URL` — API base URL (defaults to `https://api.openai.com/v1`)
+
+The API provider may charge for usage. The key is read from the environment and is not
+stored in the project. In the GUI, choose **LLM API** and **Better context (grouped
+subtitles)**. For the CLI:
+
+```powershell
+python translate_video.py "video.mp4" --source-language ja --target-language zh-CN `
+  --translator llm --translation-mode context --glossary glossary_template.csv
 ```
 
 Also burn while translating:
@@ -123,6 +155,10 @@ Song / lyrics:
 python translate_video.py "video.mp4" --source-language ja --target-language zh-CN `
   --song-mode --force-transcribe --force-translate
 ```
+
+Voice-activity filtering is enabled by default. For performances or noisy audio, disable
+it with `--no-vad-filter` (the older `--song-mode` flag remains supported). This may
+preserve quiet dialogue, but can also repeat lines; the GUI offers the same option.
 
 Force offline JA→ZH:
 

@@ -1,8 +1,17 @@
 source,target,mode,notes
-Kis-My-Ft2,Kis-My-Ft2,protect,Keep group name unchanged
-YouTube,YouTube,protect,Keep English brand unchanged
-TV,TV,protect,Keep English abbreviation unchanged
-キスマイ,Kis-My-Ft2,replace,Force Japanese nickname to preferred group name
-藤ヶ谷,Fujigaya,replace,Person name example
-玉森,Tamamori,replace,Person name example
-宮田,Miyata,replace,Person name example
+刀剣乱舞 - ICE BLADE,刀剑乱舞 - ICE BLADE,replace,Translate the Japanese title and retain the English subtitle
+歴史修正主義者,历史修正主义者,replace,Touken Ranbu enemy faction
+時間遡行軍,时间溯行军,replace,Touken Ranbu enemy faction
+刀剣男士,刀剑男士,replace,Established Chinese term for sword warriors
+刀剣乱舞,刀剑乱舞,replace,Translate the Japanese title into Simplified Chinese
+審神者,审神者,replace,Player role in Touken Ranbu
+付喪神,付丧神,replace,Mythological term used for the sword warriors
+出陣,出阵,replace,Sortie into battle
+遠征,远征,replace,Expedition
+鍛刀,锻刀,replace,Forge a sword
+刀装,刀装,replace,Sword equipment
+手入,修复,replace,Repair a sword
+戦場,战场,replace,Battlefield
+近侍,近侍,replace,Attendant sword
+本丸,本丸,protect,Keep the in-game base name
+ICE BLADE,ICE BLADE,protect,Retain the English subtitle
