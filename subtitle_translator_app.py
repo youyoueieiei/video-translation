@@ -48,15 +48,15 @@ QUALITY_MODE_VALUES = {
 }
 
 TRANSLATOR_LABELS = {
-    "English": ["Local (Japanese -> Chinese)", "Automatic (local/online)", "LLM API"],
-    "中文": ["本地日中翻译", "自动（本地/在线）", "大模型 API"],
+    "English": ["Local (Japanese -> Mandarin)", "Automatic (local/online)", "LLM API"],
+    "中文": ["本地（日文→普通话）", "自动（本地/在线）", "大模型 API"],
 }
 
 TRANSLATOR_VALUES = {
-    "Local (Japanese -> Chinese)": "local",
+    "Local (Japanese -> Mandarin)": "local",
     "Automatic (local/online)": "auto",
     "LLM API": "llm",
-    "本地日中翻译": "local",
+    "本地（日文→普通话）": "local",
     "自动（本地/在线）": "auto",
     "大模型 API": "llm",
 }
@@ -67,7 +67,7 @@ TEXT = {
         "ui_language": "UI Language",
         "tab_translate": "Translate",
         "tab_burn": "Burn / Compress",
-        "description": "Select an MP4, choose languages, then export translated subtitles (optional burn-in).",
+        "description": "Select an MP4, choose languages, then export translated subtitles (optional burn-in). Chinese output is Mandarin, not Cantonese.",
         "burn_description": "Select a video + SRT/ASS, set font size and compression, then export a subtitled video.",
         "files_section": "Files",
         "translation_section": "Languages and Quality",
@@ -143,7 +143,7 @@ TEXT = {
         "ui_language": "界面语言",
         "tab_translate": "翻译",
         "tab_burn": "压制 / 烧录",
-        "description": "选择 MP4，设置源语言与目标语言，导出翻译字幕；可选烧录到新视频。",
+        "description": "选择 MP4，设置源语言与目标语言，导出翻译字幕；可选烧录到新视频。中文输出为普通话，不保留粤语。",
         "burn_description": "选择视频 + SRT/ASS，设置字号与压缩参数，输出带字幕视频（分辨率不变）。",
         "files_section": "文件",
         "translation_section": "语言与质量",

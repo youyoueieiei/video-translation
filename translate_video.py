@@ -138,6 +138,7 @@ def _translate_with_llm(text: str, source_language: str, target_language: str, t
                     "role": "system",
                     "content": (
                         f"Translate subtitles from {source_language} to {target_language}. "
+                        f"{_chinese_style_instruction(target_language)}"
                         "Preserve meaning, speaker intent, names, line breaks, and numbered prefixes. "
                         "Keep glossary placeholders exactly unchanged. Use concise, natural dialogue. "
                         "Return only the translated subtitles, with no explanation."
@@ -336,6 +337,255 @@ def restore_glossary_placeholders(text: str, replacements: dict[str, str]) -> st
     return restored
 
 
+def output_is_chinese(language_code: str) -> bool:
+    lowered = language_code.strip().lower().replace("_", "-")
+    return lowered.startswith("zh") or lowered in {"yue", "cantonese", "cmn"}
+
+
+def mandarin_api_code(language_code: str) -> str:
+    """Online translators treat zh-HK / yue as Cantonese. Always request Mandarin."""
+    lowered = language_code.strip().lower().replace("_", "-")
+    if lowered in {"yue", "zh-yue", "cantonese", "zh-hk", "zh-mo"}:
+        return "zh-CN"
+    if lowered in {"zh", "zh-hans", "zh-cn", "cmn"}:
+        return "zh-CN"
+    return language_code
+
+
+def _chinese_style_instruction(target_language: str) -> str:
+    if not output_is_chinese(target_language):
+        return ""
+    lowered = target_language.strip().lower().replace("_", "-")
+    script = "Traditional" if lowered.startswith("zh-tw") or "hant" in lowered else "Simplified"
+    return (
+        f" Write {script} Mandarin Chinese (普通话) only. "
+        "Never use Cantonese vocabulary, particles, or grammar "
+        "(唔、哋、嘅、佢、喺、睇、冇、啲、乜、咗). "
+    )
+
+
+# Written Cantonese that opus-mt-ja-zh often emits. Longest phrases first.
+# 系/係 as a copula is handled separately so 联系/关系/系列 stay intact.
+_CANTONESE_PHRASES: tuple[tuple[str, str], ...] = tuple(
+    sorted(
+        [
+            ("知唔知", "知不知道"),
+            ("系唔系", "是不是"),
+            ("係唔係", "是不是"),
+            ("系咪", "是不是"),
+            ("係咪", "是不是"),
+            ("唔该晒", "谢谢"),
+            ("唔該晒", "谢谢"),
+            ("唔该", "谢谢"),
+            ("唔該", "谢谢"),
+            ("点解", "为什么"),
+            ("點解", "为什么"),
+            ("点样", "怎样"),
+            ("點樣", "怎样"),
+            ("而家", "现在"),
+            ("呢啲嘢", "这些东西"),
+            ("嗰啲嘢", "那些东西"),
+            ("呢啲", "这些"),
+            ("嗰啲", "那些"),
+            ("呢度", "这里"),
+            ("嗰度", "那里"),
+            ("边度", "哪里"),
+            ("邊度", "哪里"),
+            ("边个", "谁"),
+            ("邊個", "谁"),
+            ("几时", "什么时候"),
+            ("幾時", "什么时候"),
+            ("乜嘢", "什么"),
+            ("咩嘢", "什么"),
+            ("咁样", "这样"),
+            ("咁樣", "这样"),
+            ("唔系", "不是"),
+            ("唔係", "不是"),
+            ("但系", "但是"),
+            ("但係", "但是"),
+            ("就系", "就是"),
+            ("就係", "就是"),
+            ("都系", "都是"),
+            ("都係", "都是"),
+            ("因为系", "因为是"),
+            ("因為係", "因为是"),
+            ("所以系", "所以是"),
+            ("所以係", "所以是"),
+            ("仲系", "还是"),
+            ("仲係", "还是"),
+            ("仲有", "还有"),
+            ("仲要", "还要"),
+            ("返嚟", "回来"),
+            ("返去", "回去"),
+            ("返到", "回到"),
+            ("睇唔到", "看不到"),
+            ("睇到", "看到"),
+            ("睇见", "看见"),
+            ("睇見", "看见"),
+            ("谂到", "想到"),
+            ("我哋", "我们"),
+            ("你哋", "你们"),
+            ("佢哋", "他们"),
+            ("呢个", "这个"),
+            ("呢個", "这个"),
+            ("嗰个", "那个"),
+            ("嗰個", "那个"),
+            ("唔好", "不要"),
+            ("唔使", "不用"),
+            ("唔知", "不知道"),
+            ("唔会", "不会"),
+            ("唔會", "不会"),
+            ("唔可以", "不可以"),
+            ("唔能够", "不能够"),
+            ("唔能夠", "不能够"),
+            ("做唔到", "做不到"),
+            ("食嘢", "吃东西"),
+            ("饮嘢", "喝东西"),
+            ("飲嘢", "喝东西"),
+            ("食饭", "吃饭"),
+            ("食飯", "吃饭"),
+            ("屋企", "家"),
+        ],
+        key=lambda item: len(item[0]),
+        reverse=True,
+    )
+)
+
+# Keep Mandarin words that contain 系/係. Everything else is the Cantonese copula 是.
+_XI_COMPOUNDS: tuple[str, ...] = (
+    "操作系统",
+    "生態系統",
+    "生态系统",
+    "太阳系",
+    "太陽系",
+    "银河系",
+    "銀河系",
+    "联系",
+    "聯繫",
+    "关系",
+    "關係",
+    "体系",
+    "體系",
+    "系数",
+    "係數",
+    "星系",
+    "系列",
+    "系统",
+    "系統",
+    "派系",
+    "世系",
+    "直系",
+    "旁系",
+    "谱系",
+    "譜系",
+    "水系",
+    "山系",
+    "语系",
+    "語系",
+    "院系",
+    "科系",
+    "学系",
+    "學系",
+    "维系",
+    "維系",
+    "嫡系",
+    "母系",
+    "父系",
+    "干系",
+    "干係",
+    "系主任",
+    "日系",
+    "美系",
+    "欧系",
+    "歐系",
+    "德系",
+    "韩系",
+    "韓系",
+    "英系",
+)
+
+_COPULA_PREV = set("就都但而又先真这那我你他她它很太最不唔咁")
+_COPULA_NEXT = set("我你他她它这那不一很太好个种")
+_CLAUSE_BOUNDARY = set("，。！？、；：\n\t \"'（(「『…—～,!?;:")
+
+_CANTONESE_CHARS: tuple[tuple[str, str], ...] = (
+    ("哋", "们"),
+    ("嘅", "的"),
+    ("喺", "在"),
+    ("咗", "了"),
+    ("啲", "些"),
+    ("冇", "没有"),
+    ("嗰", "那"),
+    ("嚟", "来"),
+    ("睇", "看"),
+    ("嘢", "东西"),
+    ("谂", "想"),
+    ("乜", "什么"),
+    ("唔", "不"),
+    ("佢", "他"),
+    ("俾", "给"),
+    ("畀", "给"),
+    ("咁", "这么"),
+    ("咩", "什么"),
+    ("㗎", ""),
+    ("咋", ""),
+    ("嘞", "了"),
+    ("喇", "了"),
+    ("咯", "了"),
+    ("囉", ""),
+    ("啰", ""),
+    ("喎", ""),
+    ("吖", ""),
+    ("嚫", ""),
+    ("噉", "这样"),
+    ("瞓", "睡"),
+    ("搵", "找"),
+    ("攞", "拿"),
+)
+
+
+def _replace_cantonese_copula(text: str) -> str:
+    protected: list[str] = []
+
+    def _hold(match: re.Match[str]) -> str:
+        protected.append(match.group(0))
+        return f"\uE000{len(protected) - 1}\uE001"
+
+    pattern = "|".join(re.escape(word) for word in sorted(set(_XI_COMPOUNDS), key=len, reverse=True))
+    shielded = re.sub(pattern, _hold, text) if pattern else text
+    chars = list(shielded)
+    for index, char in enumerate(chars):
+        if char not in {"系", "係"}:
+            continue
+        prev = chars[index - 1] if index else ""
+        nxt = chars[index + 1] if index + 1 < len(chars) else ""
+        clause_initial = (not prev) or prev in _CLAUSE_BOUNDARY
+        if clause_initial or prev in _COPULA_PREV or nxt in _COPULA_NEXT:
+            chars[index] = "是"
+    shielded = "".join(chars)
+    return re.sub(
+        r"\uE000(\d+)\uE001",
+        lambda match: protected[int(match.group(1))],
+        shielded,
+    )
+
+
+def to_mandarin(text: str) -> str:
+    """Rewrite written Cantonese into Mandarin. Standard Mandarin wording is left as-is."""
+    if not text:
+        return text
+    converted = text
+    for source, target in _CANTONESE_PHRASES:
+        if source in converted:
+            converted = converted.replace(source, target)
+    converted = re.sub(r"([一-龥])唔\1", r"\1不\1", converted)
+    converted = _replace_cantonese_copula(converted)
+    for source, target in _CANTONESE_CHARS:
+        if source in converted:
+            converted = converted.replace(source, target)
+    return converted
+
+
 # Post-MT Chinese polish: fix common word-order / theater-announcement calques.
 # Longer phrases first.
 _CHINESE_POLISH_RULES: list[tuple[str, str]] = [
@@ -365,8 +615,235 @@ _CHINESE_POLISH_RULES: list[tuple[str, str]] = [
 ]
 
 
-def polish_translated_chinese(text: str) -> str:
-    polished = text
+# Short Japanese dialogue MarianMT often copies unchanged into "Chinese".
+# Longer keys first. Values are Mandarin.
+_JA_DIALOGUE_EXACT: tuple[tuple[str, str], ...] = tuple(
+    sorted(
+        [
+            ("大丈夫ですか", "没事吧"),
+            ("大丈夫ですよ", "没事的"),
+            ("大丈夫です", "没事"),
+            ("大丈夫だよ", "没事的"),
+            ("大丈夫だね", "没事吧"),
+            ("大丈夫だな", "没事吧"),
+            ("大丈夫だ", "没事"),
+            ("大丈夫かい", "没事吧"),
+            ("大丈夫かよ", "没事吧"),
+            ("大丈夫か", "没事吧"),
+            ("大丈夫なの", "没事吗"),
+            ("大丈夫なの?", "没事吗？"),
+            ("大丈夫なの？", "没事吗？"),
+            ("大丈夫?", "没事吗？"),
+            ("大丈夫？", "没事吗？"),
+            ("大丈夫。", "没事。"),
+            ("大丈夫!", "没事！"),
+            ("大丈夫！", "没事！"),
+            ("大丈夫", "没事"),
+            ("何が大丈夫", "什么没事了"),
+            ("何が大丈夫?", "什么没事了？"),
+            ("何が大丈夫？", "什么没事了？"),
+            ("ありがとうございます", "谢谢"),
+            ("ありがとう", "谢谢"),
+            ("すみません", "对不起"),
+            ("ごめんなさい", "对不起"),
+            ("ごめんね", "抱歉"),
+            ("ごめん", "抱歉"),
+            ("お願いします", "拜托了"),
+            ("お願い", "拜托"),
+            ("おはようございます", "早上好"),
+            ("おはよう", "早上好"),
+            ("こんにちは", "你好"),
+            ("こんばんは", "晚上好"),
+            ("さようなら", "再见"),
+            ("お疲れ様です", "辛苦了"),
+            ("お疲れさま", "辛苦了"),
+            ("お疲れ", "辛苦了"),
+            ("ただいま", "我回来了"),
+            ("おかえり", "你回来了"),
+            ("いってきます", "我出门了"),
+            ("いってらっしゃい", "慢走"),
+            ("いただきます", "我开动了"),
+            ("ごちそうさま", "多谢款待"),
+            ("よろしくお願いします", "请多关照"),
+            ("よろしく", "请多关照"),
+            ("そうですね", "是啊"),
+            ("そうだね", "是啊"),
+            ("そうか", "这样啊"),
+            ("そっか", "这样啊"),
+            ("なるほど", "原来如此"),
+            ("もちろん", "当然"),
+            ("やっぱり", "果然"),
+            ("ちょっと", "稍等一下"),
+            ("本当に", "真的"),
+            ("本当?", "真的吗？"),
+            ("本当？", "真的吗？"),
+            ("やばい", "糟了"),
+            ("すごい", "好厉害"),
+            ("かわいい", "好可爱"),
+            ("うるさい", "吵死了"),
+            ("だめ", "不行"),
+            ("ダメ", "不行"),
+            ("わかった", "知道了"),
+            ("分かった", "知道了"),
+            ("わからない", "不知道"),
+            ("分からない", "不知道"),
+            ("どうしたの", "怎么了"),
+            ("どうした", "怎么了"),
+            ("なに", "什么"),
+            ("何", "什么"),
+            ("誰", "谁"),
+            ("どこ", "哪里"),
+            ("なぜ", "为什么"),
+            ("なんで", "为什么"),
+            ("失礼します", "失陪了"),
+            ("失礼", "失礼了"),
+            ("最低", "太差劲了"),
+            ("最低。", "太差劲了。"),
+            ("嫌", "讨厌"),
+            ("必要", "有必要"),
+            ("音楽", "音乐"),
+            ("踊る", "跳舞"),
+        ],
+        key=lambda item: len(item[0]),
+        reverse=True,
+    )
+)
+
+# Leftover Japanese that still appears inside otherwise-Chinese MT output.
+_JA_RESIDUE_IN_ZH: tuple[tuple[str, str], ...] = tuple(
+    sorted(
+        [
+            ("什么大丈夫?", "什么叫没事？"),
+            ("什么大丈夫？", "什么叫没事？"),
+            ("什么大丈夫", "什么叫没事"),
+            ("的大丈夫吗", "没事吗"),
+            ("的大丈夫か", "没事吗"),
+            ("的大丈夫", "没事吗"),
+            ("大丈夫吗?", "没事吗？"),
+            ("大丈夫吗？", "没事吗？"),
+            ("大丈夫吗", "没事吗"),
+            ("大丈夫了", "没事了"),
+            ("大丈夫か", "没事吧"),
+            ("大丈夫?", "没事吗？"),
+            ("大丈夫？", "没事吗？"),
+            ("大丈夫。", "没事。"),
+            ("大丈夫!", "没事！"),
+            ("大丈夫！", "没事！"),
+            ("大丈夫", "没事"),
+            ("ありがとう", "谢谢"),
+            ("すみません", "对不起"),
+            ("ごめんね", "抱歉"),
+            ("ごめん", "抱歉"),
+            ("お願い", "拜托"),
+            ("の一歩", "的一步"),
+            ("一歩だ", "一步"),
+            ("一歩。", "一步。"),
+            ("作詞", "作词"),
+            ("作曲", "作曲"),
+            ("編曲", "编曲"),
+        ],
+        key=lambda item: len(item[0]),
+        reverse=True,
+    )
+)
+
+_KANA_RE = re.compile(r"[\u3040-\u309f\u30a0-\u30ff]")
+
+
+def _normalize_ja_key(text: str) -> str:
+    cleaned = text.strip()
+    cleaned = (
+        cleaned.replace("！", "!")
+        .replace("？", "?")
+        .replace("。", ".")
+        .replace("，", ",")
+        .replace("｡", ".")
+    )
+    cleaned = re.sub(r"\s+", "", cleaned)
+    return cleaned
+
+
+_JA_DIALOGUE_LOOKUP = {_normalize_ja_key(src): dst for src, dst in _JA_DIALOGUE_EXACT}
+
+# Standalone interjections / fillers: leave Chinese blank (do not translate).
+_INTERJECTION_RE = re.compile(
+    r"^(?:"
+    r"あ+|あっ|あー+|う+|うっ|うーん|うん+|え+|えっ+|ええ+|"
+    r"お+|おっ|おー+|ん+|ねえ?|ね|な|さ|さあ|"
+    r"はい|へえ?|へい|ほ+|ほら|おい|いや|いやいや|いいえ|"
+    r"よし|まあ+|わ+|わぁ|うわ+|ひゃ+|ふ+|ふう|はぁ+|はあ+|"
+    r"あっは+|はっ+|ふふ+|うふ+|へえ+"
+    r")(?:[！!？?。.…・\s]*)$"
+)
+
+
+def is_japanese_interjection(text: str) -> bool:
+    cleaned = re.sub(r"\s+", "", text.strip())
+    if not cleaned:
+        return False
+    return bool(_INTERJECTION_RE.match(cleaned))
+
+
+def lookup_japanese_dialogue(text: str) -> str | None:
+    key = _normalize_ja_key(text)
+    if key in _JA_DIALOGUE_LOOKUP:
+        return _JA_DIALOGUE_LOOKUP[key]
+    stem = key.rstrip("!?.,~…")
+    # 大丈夫かい? → 大丈夫かい; keep punct-specific entries (大丈夫? ≠ 大丈夫)
+    if stem in _JA_DIALOGUE_LOOKUP:
+        return _JA_DIALOGUE_LOOKUP[stem]
+    for suffix in ("?", "!", "."):
+        hit = _JA_DIALOGUE_LOOKUP.get(stem + suffix)
+        if hit is not None:
+            return hit
+    return None
+
+
+def contains_kana(text: str) -> bool:
+    return bool(_KANA_RE.search(text))
+
+
+def rewrite_japanese_residue(text: str) -> str:
+    rewritten = text
+    for source, target in _JA_RESIDUE_IN_ZH:
+        if source in rewritten:
+            rewritten = rewritten.replace(source, target)
+    return rewritten
+
+
+def ensure_mandarin_from_japanese(source_text: str, translated_text: str) -> str:
+    """Stop Japanese dialogue (大丈夫 etc.) from leaking into Chinese subtitles."""
+    # Pure 语气词 / fillers: keep Chinese empty instead of translating.
+    if is_japanese_interjection(source_text):
+        return ""
+
+    exact = lookup_japanese_dialogue(source_text)
+    if exact is not None:
+        return exact
+
+    result = rewrite_japanese_residue(translated_text)
+    # Whole-line copy-through: model returned the Japanese unchanged.
+    if _normalize_ja_key(result) == _normalize_ja_key(source_text):
+        exact = lookup_japanese_dialogue(source_text)
+        if exact is not None:
+            return exact
+    # Still has kana → prefer exact source lookup, else strip common leftovers again.
+    if contains_kana(result):
+        exact = lookup_japanese_dialogue(source_text)
+        if exact is not None:
+            return exact
+        result = rewrite_japanese_residue(result)
+        result = _KANA_RE.sub("", result)
+        result = re.sub(r"[・\s]{2,}", " ", result).strip(" ・,，")
+    return result.strip() if result.strip() else translated_text
+
+
+def polish_translated_chinese(text: str, source_text: str | None = None) -> str:
+    polished = to_mandarin(text)
+    if source_text is not None:
+        polished = ensure_mandarin_from_japanese(source_text, polished)
+    else:
+        polished = rewrite_japanese_residue(polished)
     for source, target in _CHINESE_POLISH_RULES:
         polished = polished.replace(source, target)
     # デカ/刑事 = 刑警, not private-eye 侦探 (keep 怪侦探帕里斯)
@@ -387,8 +864,21 @@ def translate_text(
     if not text.strip():
         return text
 
+    # zh-HK / yue return Cantonese from Google and MyMemory.
+    target_language = mandarin_api_code(target_language)
+
+    if source_language.startswith("ja") and output_is_chinese(target_language):
+        # Skip translating standalone interjections (あ / ね / うん / はい …).
+        if is_japanese_interjection(text):
+            return ""
+        # Common short Japanese lines: prefer a Mandarin glossary over MT copy-through.
+        exact = lookup_japanese_dialogue(text)
+        if exact is not None:
+            return exact
+
     # Offline MarianMT is reliable when online APIs are rate-limited.
-    if translator in {"local", "auto"} and source_language.startswith("ja") and target_language.startswith("zh"):
+    # Its zh side still mixes in Cantonese and sometimes copies Japanese (大丈夫).
+    if translator in {"local", "auto"} and source_language.startswith("ja") and output_is_chinese(target_language):
         try:
             return _translate_with_local_mt(text)
         except Exception as local_exc:
@@ -544,15 +1034,16 @@ def translate_subtitles(
             translated_text = line.text
 
         translated_text = restore_glossary_placeholders(translated_text, glossary_replacements)
-        if target_language.startswith("zh"):
-            translated_text = polish_translated_chinese(translated_text)
+        if output_is_chinese(target_language):
+            translated_text = polish_translated_chinese(translated_text, source_text=line.text)
 
         translated.append(
             SubtitleLine(
                 index=line.index,
                 start=line.start,
                 end=line.end,
-                text=translated_text.strip() if translated_text else line.text,
+                # Empty string is intentional (e.g. skipped interjection).
+                text=translated_text.strip(),
             )
         )
 
@@ -634,14 +1125,17 @@ def translate_subtitles_with_context(
 
         for source_line, translated_text, replacements in zip(batch, translated_texts, batch_replacements):
             translated_text = restore_glossary_placeholders(translated_text, replacements)
-            if target_language.startswith("zh"):
-                translated_text = polish_translated_chinese(translated_text)
+            if output_is_chinese(target_language):
+                translated_text = polish_translated_chinese(
+                    translated_text,
+                    source_text=source_line.text,
+                )
             translated.append(
                 SubtitleLine(
                     index=source_line.index,
                     start=source_line.start,
                     end=source_line.end,
-                    text=translated_text.strip() if translated_text else source_line.text,
+                    text=translated_text.strip(),
                 )
             )
 
@@ -740,7 +1234,11 @@ def parse_args() -> argparse.Namespace:
         "--target-language",
         "--target",
         default="zh-CN",
-        help="Output translation language code, e.g. zh-CN, en, ja, ko. Default: zh-CN.",
+        help=(
+            "Output translation language code, e.g. zh-CN, en, ja, ko. Default: zh-CN. "
+            "Chinese output is Mandarin (普通话). zh-HK and yue are requested as zh-CN, "
+            "and Cantonese wording is rewritten into Mandarin."
+        ),
     )
     stage_group = parser.add_mutually_exclusive_group()
     stage_group.add_argument(

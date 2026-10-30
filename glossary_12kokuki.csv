@@ -1,0 +1,131 @@
+source,target,mode,notes
+ミュージカル『十二国記 ‐月の影 影の海‐』,音乐剧《十二国记－月之影 影之海－》,replace,Toho musical title
+ミュージカル『十二国記 -月の影 影の海-』,音乐剧《十二国记－月之影 影之海－》,replace,Title hyphen variant
+十二国記 ‐月の影 影の海‐,十二国记－月之影 影之海－,replace,Billed title without ミュージカル
+十二国記 -月の影 影の海-,十二国记－月之影 影之海－,replace,ASCII hyphen title
+月の影 影の海,月之影 影之海,replace,Source novel subtitle
+月の影,月之影,replace,Novel / musical subtitle first half
+影の海,影之海,replace,Novel / musical subtitle second half
+十二国記,十二国记,replace,Series title
+ジュウニコクキ,十二国记,replace,Katakana series title
+中嶋陽子,中嶋阳子,replace,Heroine full name
+なかじまようこ,中嶋阳子,replace,Hiragana full name
+ヨウコ,阳子,replace,Post-crossing name used on stage
+ようこ,阳子,replace,Hiragana Youko
+陽子,阳子,replace,Japan-side / shared name
+洋子,阳子,replace,ASR mishear of 陽子
+葉子,阳子,replace,ASR mishear of 陽子
+景麒,景麒,protect,Kei kirin; do not render as a personal nickname
+ケイキ,景麒,replace,Katakana Keiki
+けいき,景麒,replace,Hiragana Keiki
+慶麒,景麒,replace,ASR mix-up of 景/慶
+楽俊,乐俊,replace,Han-juu companion
+ラクシュン,乐俊,replace,Katakana Rakushun
+らくしゅん,乐俊,replace,Hiragana Rakushun
+張清,张清,replace,Rakushun registry name
+蒼猿,苍猿,replace,Sheath demon of the Sui-gu sword
+青猿,苍猿,replace,Alternate writing of 蒼猿
+ソウエン,苍猿,replace,Katakana Souen
+そうえん,苍猿,replace,Hiragana Souen
+舒栄,舒荣,replace,False queen of Kei
+ジョエイ,舒荣,replace,Katakana Joei
+じょえい,舒荣,replace,Hiragana Joei
+舒覚,舒觉,replace,Previous Kei queen; posthumous 予王
+予王,予王,protect,Posthumous title of 舒覚
+延王,延王,protect,King of En
+エンオウ,延王,replace,Katakana En-ou
+えんおう,延王,replace,Hiragana En-ou
+尚隆,尚隆,protect,Personal name of the King of En
+小松尚隆,小松尚隆,protect,En king registry name
+延麒,延麒,protect,En kirin
+六太,六太,protect,En kirin personal name
+塙王,塙王,protect,King of Kou in this volume
+コウオウ,塙王,replace,Katakana Kou-ou
+こうおう,塙王,replace,Hiragana Kou-ou
+塙麟,塙麟,protect,Kou kirin
+景王,景王,protect,King of Kei; Youko's throne name
+台輔,台辅,replace,Honorific for the kirin / chancellor
+宰輔,宰辅,replace,Kirin office title
+壁落人,壁落人,protect,Kaikyaku living in En
+達姐,达姐,replace,Character in the Kou stretch of the story
+白芥瑚,白芥瑚,protect,Keiki nyokai
+カイコ,白芥瑚,replace,Katakana Kaiko
+冗祐,冗祐,protect,Keiki shirei Hinman
+慶東国,庆东国,replace,Full country name Kei
+慶国,庆国,replace,Short country name Kei
+雁州国,雁州国,replace,Full country name En
+雁国,雁国,replace,Short country name En
+巧州国,巧州国,replace,Full country name Kou
+巧国,巧国,replace,Short country name Kou
+奏南国,奏南国,replace,Full country name Sou
+奏国,奏国,replace,Short country name Sou
+範西国,范西国,replace,Full country name Han
+範国,范国,replace,Short country name Han
+柳北国,柳北国,replace,Full country name Ryuu
+柳国,柳国,replace,Short country name Ryuu
+恭州国,恭州国,replace,Full country name Kyou
+恭国,恭国,replace,Short country name Kyou
+才州国,才州国,replace,Full country name Sai
+才国,才国,replace,Short country name Sai
+戴極国,戴极国,replace,Full country name Tai
+戴国,戴国,replace,Short country name Tai
+舜極国,舜极国,replace,Full country name Shun
+舜国,舜国,replace,Short country name Shun
+芳極国,芳极国,replace,Full country name Hou
+芳国,芳国,replace,Short country name Hou
+漣極国,涟极国,replace,Full country name Ren
+漣国,涟国,replace,Short country name Ren
+金波宮,金波宫,replace,Kei royal palace
+玄英宮,玄英宫,replace,En royal palace
+翠篁宮,翠篁宫,replace,Kou royal palace
+堯天,尧天,replace,Kei capital
+関弓,关弓,replace,En capital
+傲霜,傲霜,protect,Kou capital
+配浪,配浪,protect,Kou coast where Youko washes ashore
+黄海,黄海,protect,Central wilderness
+虚海,虚海,protect,Sea between the worlds
+蓬莱,蓬莱,protect,Japan in this world
+崑崙,昆仑,replace,China in this world
+蓬山,蓬山,protect,Mountain where kirin are born
+金剛山,金刚山,replace,Mountains ringing the Yellow Sea
+五山,五山,protect,Five sacred mountains
+蝕,蚀,replace,Storm that joins the worlds
+しょく,蚀,replace,Hiragana shoku when used as the phenomenon
+胎果,胎果,protect,Person born in the other world from a drifted egg-fruit
+たいか,胎果,replace,Hiragana taika
+卵果,卵果,protect,Egg-fruit children grow from
+里木,里木,protect,Tree that bears egg-fruit
+海客,海客,protect,Drifter from Hourai / Japan
+かいきゃく,海客,replace,Hiragana kaikyaku
+山客,山客,protect,Drifter from Kunlun / China
+妖魔,妖魔,protect,Youma
+使令,使令,protect,Youma bound as a kirin's servant
+半獣,半兽,replace,Hanjuu
+誓約,誓约,replace,Oath between king and kirin
+王気,王气,replace,Aura a kirin senses in the true king
+登極,登极,replace,Accession
+偽王,伪王,replace,False king
+失道,失道,protect,Illness of a kirin whose king has strayed
+水禺刀,水禺刀,protect,Kei treasure sword; blade is water, sheath is the ape
+すいぐうとう,水禺刀,replace,Hiragana Suiguutou
+碧双珠,碧双珠,protect,Healing jewels given with the sword
+麒麟,麒麟,protect,Sacred beast that chooses the king
+昇山,升山,replace,Climbing Housan to seek the kirin
+折伏,折伏,protect,Kirin binding a youma by name
+仙籍,仙籍,protect,Immortal registry
+小野不由美,小野不由美,protect,Original author
+元吉庸泰,元吉庸泰,protect,Book and lyrics
+山田和也,山田和也,protect,Director
+深澤恵梨香,深泽惠梨香,replace,Composer
+柚香光,柚香光,protect,Youko (after crossing)
+加藤梨里香,加藤梨里香,protect,Youko (Japan side)
+太田基裕,太田基裕,protect,Rakushun W-cast
+牧島輝,牧岛辉,replace,Rakushun W-cast
+玉城裕規,玉城裕规,replace,Souen / Kou king
+原田真絢,原田真绚,replace,Joei
+相葉裕樹,相叶裕树,replace,Keiki
+日生劇場,日生剧场,replace,Tokyo venue
+博多座,博多座,protect,Fukuoka venue
+梅田芸術劇場,梅田艺术剧场,replace,Osaka venue
+御園座,御园座,replace,Aichi venue
+東宝,东宝,replace,Producer
